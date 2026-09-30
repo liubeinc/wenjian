@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>文件格式转换站</title>
+<style>
+:root{
+  --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --line2:#eef1f4;
+  --tx:#1b1f24; --tx2:#5b6472; --tx3:#8a93a1;
+  --ac:#2f6feb; --ac-bg:#eef3fe; --ac-line:#c3d6fb;
+  --ok:#1a7f47; --ok-bg:#eaf6ef;
+  --warn:#8a5a00; --warn-bg:#fdf4e3;
+  --err:#c0392b; --err-bg:#fdecea;
+  --r:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--tx);
+  font:14px/1.6 "Microsoft YaHei","PingFang SC","Hiragino Sans GB",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px 64px}
+
+/* ---- 顶栏 ---- */
+header{background:var(--card);border-bottom:1px solid var(--line);margin-bottom:24px}
+.hd{max-width:1080px;margin:0 auto;padding:16px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.logo{font-size:17px;font-weight:700;letter-spacing:.2px}
+.logo span{color:var(--tx3);font-weight:400;font-size:13px;margin-left:8px;letter-spacing:0}
+.badge{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;
+  padding:4px 11px;border-radius:99px;border:1px solid var(--line);background:var(--bg);color:var(--tx2)}
+.badge .dot{width:7px;height:7px;border-radius:50%;background:var(--tx3);flex:none}
+.badge.on{background:var(--ok-bg);border-color:#bfe3cd;color:var(--ok)}
+.badge.on .dot{background:var(--ok)}
+.badge.off{background:var(--warn-bg);border-color:#efdcb4;color:var(--warn)}
+.badge.off .dot{background:var(--warn)}
+/* 状态标签本身就是「重新检测」的按钮。服务常常比页面晚启动, 让用户知道要刷新
+   页面是件很反直觉的事, 不如让他点一下标签 —— 所以这里给它按钮的样子。 */
+.badge{cursor:pointer;user-select:none}
+.badge:hover{border-color:var(--tx3)}
+.badge:active{transform:translateY(1px)}
+.badge.busy .dot{background:var(--ac);animation:svcPulse .9s ease-in-out infinite}
+@keyframes svcPulse{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* ---- 拖拽区 ---- */
+.drop{
+  background:var(--card);border:1.5px dashed var(--line);border-radius:var(--r);
+  padding:34px 20px;text-align:center;cursor:pointer;transition:.15s;
+}
+.drop:hover{border-color:var(--ac-line);background:#fcfdff}
+.drop.over{border-color:var(--ac);background:var(--ac-bg)}
+.drop b{display:block;font-size:15px;margin-bottom:5px;font-weight:600}
+.drop small{color:var(--tx3);font-size:12.5px}
+.drop .pick{color:var(--ac);text-decoration:underline;text-underline-offset:2px}
+
+/* ---- 分区 ---- */
+.sec{margin-top:26px}
+.sec-h{display:flex;align-items:baseline;gap:10px;margin-bottom:11px}
+.sec-h h2{font-size:14.5px;margin:0;font-weight:700}
+.sec-h em{font-style:normal;font-size:12.5px;color:var(--tx3)}
+
+/* ---- 动作网格 ---- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:10px}
+.act{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:13px 14px;cursor:pointer;transition:.12s;text-align:left;font:inherit;color:inherit;
+}
+.act:hover:not(:disabled){border-color:var(--ac-line);box-shadow:0 1px 6px rgba(47,111,235,.09)}
+.act.sel{border-color:var(--ac);background:var(--ac-bg);box-shadow:0 0 0 1px var(--ac) inset}
+.act:disabled{opacity:.45;cursor:not-allowed}
+.act b{display:block;font-size:13.5px;font-weight:600;margin-bottom:2px}
+.act small{color:var(--tx3);font-size:12px;line-height:1.45;display:block}
+.act .need{display:inline-block;margin-top:5px;font-size:11px;color:var(--warn);
+  background:var(--warn-bg);border:1px solid #efdcb4;border-radius:4px;padding:1px 6px}
+
+/* ---- 文件列表 ---- */
+.files{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.frow{display:flex;align-items:center;gap:11px;padding:9px 13px;border-bottom:1px solid var(--line2)}
+.frow:last-child{border-bottom:0}
+.frow .ic{width:32px;height:32px;border-radius:6px;background:var(--bg);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;
+  color:var(--tx2);flex:none;letter-spacing:.3px}
+.frow .nm{flex:1;min-width:0}
+.frow .nm b{display:block;font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .nm small{color:var(--tx3);font-size:11.5px}
+.frow .rm{border:0;background:none;color:var(--tx3);cursor:pointer;font-size:17px;line-height:1;
+  padding:3px 6px;border-radius:5px;flex:none}
+.frow .rm:hover{background:var(--err-bg);color:var(--err)}
+.frow.bad{background:#fffafa}
+.frow .st{font-size:11.5px;flex:none;padding:2px 8px;border-radius:99px}
+.st.wait{background:var(--bg);color:var(--tx3)}
+.st.run{background:var(--ac-bg);color:var(--ac)}
+.st.ok{background:var(--ok-bg);color:var(--ok)}
+.st.no{background:var(--err-bg);color:var(--err)}
+
+/* ---- 参数面板 ---- */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:15px 16px;margin-top:12px}
+.prow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.prow:last-child{margin-bottom:0}
+.prow label{font-size:13px;color:var(--tx2);min-width:62px;flex:none}
+.prow input[type=number],.prow input[type=text],.prow select{
+  font:inherit;font-size:13px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;
+  background:#fff;color:var(--tx);min-width:88px}
+.prow input:focus,.prow select:focus{outline:2px solid var(--ac-line);outline-offset:-1px;border-color:var(--ac)}
+.prow input[type=range]{flex:1;min-width:130px;max-width:280px;accent-color:var(--ac)}
+.prow .hint{font-size:12px;color:var(--tx3)}
+.qualval{font-size:12.5px;color:var(--tx2);min-width:30px;font-variant-numeric:tabular-nums}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{font:inherit;font-size:12.5px;padding:6px 13px;border:0;background:#fff;color:var(--tx2);cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--ac);color:#fff}
+
+/* ---- 按钮 ---- */
+.btn{font:inherit;font-size:13.5px;font-weight:600;padding:9px 20px;border-radius:8px;
+  border:1px solid var(--line);background:#fff;color:var(--tx);cursor:pointer;transition:.12s}
+.btn:hover:not(:disabled){background:var(--bg)}
+.btn.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+.btn.pri:hover:not(:disabled){background:#2560d0;border-color:#2560d0}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.bar{display:flex;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap}
+.bar .note{font-size:12.5px;color:var(--tx3)}
+
+/* ---- 提示条 ---- */
+.tip{border-radius:8px;padding:10px 13px;font-size:12.5px;line-height:1.6;margin-bottom:14px;border:1px solid}
+.tip.info{background:var(--ac-bg);border-color:var(--ac-line);color:#1c4fb8}
+.tip.warn{background:var(--warn-bg);border-color:#efdcb4;color:var(--warn)}
+.tip.err{background:var(--err-bg);border-color:#f5c6c0;color:var(--err)}
+.tip.ok{background:var(--ok-bg);border-color:#bfe3cd;color:var(--ok)}
+.tip code{background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;font-size:12px}
+
+.empty{color:var(--tx3);font-size:13px;text-align:center;padding:22px 10px}
+#resCard{display:none}
+.dl{display:flex;gap:6px;flex:none}
+.dl a{font-size:12px;color:var(--ac);text-decoration:none;padding:3px 9px;border:1px solid var(--ac-line);
+  border-radius:6px;background:var(--ac-bg);white-space:nowrap}
+.dl a:hover{background:var(--ac);color:#fff;border-color:var(--ac)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hd">
+    <div class="logo">文件格式转换<span>文件不出本机</span></div>
+    <div class="badge" id="svcBadge"><span class="dot"></span><span id="svcText">正在检测本机服务…</span></div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="drop" id="drop">
+    <b>把文件拖到这里，或 <span class="pick">点击选择</span></b>
+    <small id="dropHint">支持 图片 / PDF / 表格（Excel、CSV）；可一次选多个</small>
+    <input type="file" id="picker" multiple hidden>
+  </div>
+
+  <div id="capTip"></div>
+
+  <!-- 图片 -->
+  <section class="sec" id="secImg" style="display:none">
+    <div class="sec-h"><h2>图片转换</h2><em id="imgCount"></em></div>
+    <div class="grid" id="imgActs"></div>
+    <div class="panel" id="imgPanel" style="display:none">
+      <div class="prow">
+        <label>质量</label>
+        <input type="range" id="imgQ" min="1" max="100" value="92">
+        <span class="qualval" id="imgQV">92</span>
+        <span class="hint">仅 JPG 有效</span>
+      </div>
+      <div class="prow">
+        <label>尺寸</label>
+        <input type="number" id="imgW" placeholder="宽" min="1" style="min-width:74px">
+        <span class="hint">×</span>
+        <input type="number" id="imgH" placeholder="高" min="1" style="min-width:74px">
+        <span class="hint">留空 = 保持原尺寸；只填一边则按比例缩放</span>
+      </div>
+      <div class="prow">
+        <label>多帧</label>
+        <select id="imgFrame"><option value="1">只取第 1 帧</option><option value="全部">每帧各出一张</option></select>
+        <span class="hint">多页 TIFF / 动图用</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- PDF -->
+  <section class="sec" id="secPdf" style="display:none">
+    <div class="sec-h"><h2>PDF 工具</h2><em id="pdfCount"></em></div>
+    <div class="grid" id="pdfActs"></div>
+    <div class="panel" id="pdfPanel" style="display:none">
+      <div class="prow" id="pdfPageRow">
+        <label>页码</label>
+        <input type="text" id="pdfPages" placeholder="留空 = 全部页" style="min-width:190px">
+        <span class="hint">如 <code>1,3,5-8</code></span>
+      </div>
+      <div class="prow" id="pdfSizeRow">
+        <label>出图尺寸</label>
+        <select id="pdfMode">
+          <option value="auto">按原生像素（推荐，不损失清晰度）</option>
+          <option value="dpi">按 DPI</option>
+          <option value="px">按指定宽度</option>
+        </select>
+        <input type="number" id="pdfDpi" value="300" min="36" max="1200" style="display:none;min-width:74px">
+        <input type="number" id="pdfPx" value="1600" min="50" max="20000" style="display:none;min-width:88px">
+      </div>
+      <div class="prow" id="pdfQRow">
+        <label>质量</label>
+        <input type="range" id="pdfQ" min="1" max="100" value="95">
+        <span class="qualval" id="pdfQV">95</span>
+      </div>
+      <div class="prow" id="pdfMergeRow" style="display:none">
+        <label>顺序</label>
+        <span class="hint">按上面文件列表的顺序合并，可用 ↑ 调整</span>
+      </div>
+      <div class="prow" id="pdfRotRow" style="display:none">
+        <label>旋转</label>
+        <select id="pdfRot">
+          <option value="90">顺时针 90°</option>
+          <option value="180">180°</option>
+          <option value="270">顺时针 270°</option>
+        </select>
+        <span class="hint">配合上面的页码；页码留空 = 全部页</span>
+      </div>
+      <div class="prow" id="pdfOrderRow" style="display:none">
+        <label>新页序</label>
+        <span class="hint">按上面的页码顺序输出。可重复、可倒着写（<code>8-5</code>）、可只写一部分 ——
+          提取指定页 / 删页 / 调页序都是它</span>
+      </div>
+      <div class="prow" id="pdfTitleRow" style="display:none">
+        <label>标题</label>
+        <input type="text" id="pdfTitle" placeholder="留空 = 清除标题" style="min-width:190px">
+      </div>
+      <div class="prow" id="pdfAuthorRow" style="display:none">
+        <label>作者</label>
+        <input type="text" id="pdfAuthor" placeholder="留空 = 清除作者" style="min-width:190px">
+      </div>
+    </div>
+  </section>
+
+  <!-- 表格 -->
+  <section class="sec" id="secTbl" style="display:none">
+    <div class="sec-h"><h2>表格与数据</h2><em id="tblCount"></em></div>
+    <div class="grid" id="tblActs"></div>
+    <div class="panel" id="tblPanel" style="display:none">
+      <div class="prow">
+        <label>工作表</label>
+        <select id="tblSheet"><option value="*">全部工作表</option></select>
+        <span class="hint">每个工作表导出一份</span>
+      </div>
+      <div class="prow" id="tblEncRow">
+        <label>编码</label>
+        <select id="tblEnc">
+          <option value="auto">自动识别</option>
+          <option value="utf-8">UTF-8</option>
+          <option value="gbk">GBK（老系统导出）</option>
+        </select>
+        <span class="hint">中文变成 ÐÕÃû 这种就选 GBK</span>
+      </div>
+      <div class="prow" id="tblCsvRow">
+        <label>CSV</label>
+        <select id="tblDelim"><option value=",">逗号 ,</option><option value=";">分号 ;</option><option value="\t">制表符</option></select>
+        <span class="hint">带 UTF-8 BOM，Excel 打开中文不乱码</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 文件列表 -->
+  <section class="sec" id="secFiles" style="display:none">
+    <div class="sec-h"><h2>待转换文件</h2><em id="fileCount"></em></div>
+    <div class="files" id="fileList"></div>
+    <div class="bar">
+      <button class="btn pri" id="goBtn" disabled>开始转换</button>
+      <button class="btn" id="clearBtn">清空</button>
+      <span class="note" id="goNote"></span>
+    </div>
+  </section>
+
+  <!-- 结果 -->
+  <section class="sec" id="resCard">
+    <div class="sec-h"><h2>转换结果</h2><em id="resCount"></em></div>
+    <div class="files" id="resList"></div>
+    <div class="bar">
+      <button class="btn pri" id="zipBtn" style="display:none">全部打包下载（ZIP）</button>
+      <button class="btn" id="againBtn">再转一批</button>
+    </div>
+  </section>
+
+</div>
+
+<script src="libs/xlsx.full.min.js"></script>
+<script src="libs/pdf-lib.min.js"></script>
+<script src="libs/jszip.min.js"></script>
+<script>
+/* =========================================================================
+   文件格式转换站 —— 前端
+   设计前提: 文件不出本机。
+     浏览器能干的一律在浏览器干(零上传、最快、断网可用);
+     浏览器干不了的(TIFF/ICO 解码、TIFF/GIF 编码、PDF 精确 DPI 出图)才发给
+     127.0.0.1:9761 的本机服务。服务不在就降级, 并把降级原因写在界面上。
+   ========================================================================= */
+
+const SVC = 'http://127.0.0.1:9761';
+
+// 页面是从公网托管打开的（GitHub Pages 之类），还是本机文件/本机服务打开的？
+// 托管在公网时，本机服务【永远】连不上，这是浏览器的安全策略决定的：
+//   · 服务只放行 Origin 为 "null"(file://) 和本机 http 的来源，公网来源一律不给 CORS 头
+//   · 公网页面 -> 本机 还要过 Chrome 的 PNA 策略，服务刻意没开这个口子
+// 所以这种情况下不能提示「双击启动服务.bat」—— 用户双击了也没用，得说清真正的出路。
+const 是托管打开 = location.protocol !== 'file:'
+  && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+
+// 服务类转换的统一前置检查。报错必须给出【这个环境下真能做】的下一步:
+// 网页版上让人去双击 .bat 是白费力气 —— 双击了也连不上。
+// 也兜住「选中动作时服务还在、点开始转换时已经断了」这种时序空档,
+// 否则用户看到的是一句 Failed to fetch。
+function 需要服务(说明){
+  if (状态.服务) return;
+  throw new Error(说明 + '需要本机服务，但当前用不了。'
+    + (是托管打开
+        ? '网页版受浏览器安全策略限制，访问不到你电脑上的服务。想要这项功能，请把整个文件夹下载到本机，双击 index.html 打开，再双击 启动服务.bat。'
+        : '双击目录里的「启动服务.bat」，再点一下右上角的状态标签。'));
+}
+
+// 实测过的浏览器能力边界(Chrome):
+//   能解码 png/jpg/webp/gif/bmp/avif, 解不了 tif/ico/heic;
+//   能编码只有 png/jpg/webp —— canvas.toBlob 对 avif/bmp/gif 会【静默退回 PNG】,
+//   不报错、给你一张 PNG, 所以绝不能拿 toBlob 去出这些格式。
+const 浏览器可读 = ['png','jpg','jpeg','webp','gif','bmp','avif','heic','heif'];
+const 浏览器可出 = ['jpg','png','webp','bmp','ico'];   // bmp/ico 是本文件里手写的编码器
+const 表格扩展 = ['xlsx','xls','xlsb','ods','csv','txt'];
+
+const 状态 = { 文件:[], 服务:null, 图片动作:null, PDF动作:null, 表格动作:null, 结果:[], 忙:false };
+
+/* ---------------- 小工具 ---------------- */
+const $ = id => document.getElementById(id);
+function 扩展名(name){ const m = /\.([^.]+)$/.exec(name||''); return m ? m[1].toLowerCase() : ''; }
+// 服务把结果以 base64 回来, 前端自己拼 Blob。不显式标 MIME 的话浏览器一律给
+// application/octet-stream —— 文件本身没错, 但「另存为」时系统认不出类型,
+// 拖到别的程序里也不认。按扩展名补回来。
+function 补MIME(name){
+  return {
+    jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', gif:'image/gif',
+    bmp:'image/bmp', tif:'image/tiff', tiff:'image/tiff', ico:'image/x-icon',
+    pdf:'application/pdf'
+  }[扩展名(name)] || 'application/octet-stream';
+}
+function 体积(n){
+  if (n < 1024) return n + ' B';
+  if (n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+  return (n/1024/1024).toFixed(2) + ' MB';
+}
+function 类型(name){
+  const e = 扩展名(name);
+  if (e === 'pdf') return 'PDF';
+  if (表格扩展.includes(e)) return '表格';
+  if (浏览器可读.includes(e) || ['tif','tiff','ico','heic','heif','emf','wmf'].includes(e)) return '图片';
+  return '其他';
+}
+function 服务能读(ext){ return (状态.服务 && 状态.服务.解码 || []).includes(ext); }
+function 服务能出(ext){ return (状态.服务 && 状态.服务.编码 || []).includes(ext); }
+function 下载(blob, name){
+  const u = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = u; a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(u); a.remove(); }, 400);
+}
+function blob转base64(blob){
+  return new Promise((res,rej)=>{
+    const r = new FileReader();
+    r.onload = ()=> res(String(r.result).split(',')[1]);
+    r.onerror = ()=> rej(new Error('读取文件失败'));
+    r.readAsDataURL(blob);
+  });
+}
+function 换扩展(name, ext){ return name.replace(/\.[^.]+$/, '') + '.' + ext; }
+
+/* =========================================================================
+   手写 BMP 编码器
+   GDI+ 有 BMP 编码器但那要过服务; BMP 格式本身极简单, 前端直接写更快。
+   32 位 BGRA、自底向上(高度为正数即表示自底向上)。
+   ========================================================================= */
+function 编码BMP(像素, 宽, 高){
+  const 像素字节 = 宽 * 4 * 高;
+  const buf = new ArrayBuffer(54 + 像素字节);
+  const dv = new DataView(buf);
+  dv.setUint16(0, 0x4D42, true);            // 'BM'
+  dv.setUint32(2, 54 + 像素字节, true);      // 文件总长
+  dv.setUint32(10, 54, true);                // 像素数据偏移
+  dv.setUint32(14, 40, true);                // BITMAPINFOHEADER 长度
+  dv.setInt32(18, 宽, true);
+  dv.setInt32(22, 高, true);                 // 正数 = 自底向上
+  dv.setUint16(26, 1, true);                 // 平面数
+  dv.setUint16(28, 32, true);                // 位深
+  dv.setUint32(34, 像素字节, true);
+  dv.setUint32(38, 2835, true);              // 72 DPI
+  dv.setUint32(42, 2835, true);
+  const d = 像素.data;
+  let p = 54;
+  for (let y = 高 - 1; y >= 0; y--){
+    let s = y * 宽 * 4;
+    for (let x = 0; x < 宽; x++){
+      dv.setUint8(p++, d[s+2]);              // B
+      dv.setUint8(p++, d[s+1]);              // G
+      dv.setUint8(p++, d[s]);                // R
+      dv.setUint8(p++, d[s+3]);              // A
+      s += 4;
+    }
+  }
+  return new Blob([buf], { type:'image/bmp' });
+}
+
+/* =========================================================================
+   手写 ICO 编码器
+   GDI+ 只有 ICO 解码器、没有编码器, 所以这个必须自己写。
+   Vista 以后的 ICO 允许直接内嵌 PNG, 所以本体就是「22 字节头 + 一段 PNG」。
+   ICO 的宽高字段是单字节, 256 记作 0 —— 因此最大只能 256×256。
+   ========================================================================= */
+async function 编码ICO(画布){
+  const 宽 = 画布.width, 高 = 画布.height;
+  if (宽 > 256 || 高 > 256) throw new Error('ICO 最大只能 256×256，请把尺寸改小（当前 ' + 宽 + '×' + 高 + '）');
+  const png = await new Promise(r => 画布.toBlob(r, 'image/png'));
+  const pngBuf = await png.arrayBuffer();
+  const buf = new ArrayBuffer(22 + pngBuf.byteLength);
+  const dv = new DataView(buf);
+  dv.setUint16(0, 0, true);                  // 保留
+  dv.setUint16(2, 1, true);                  // 1 = 图标
+  dv.setUint16(4, 1, true);                  // 图像数量
+  dv.setUint8(6, 宽 >= 256 ? 0 : 宽);
+  dv.setUint8(7, 高 >= 256 ? 0 : 高);
+  dv.setUint8(8, 0);                         // 调色板数
+  dv.setUint8(9, 0);                         // 保留
+  dv.setUint16(10, 1, true);                 // 色彩平面
+  dv.setUint16(12, 32, true);                // 位深
+  dv.setUint32(14, pngBuf.byteLength, true);
+  dv.setUint32(18, 22, true);                // 数据偏移
+  new Uint8Array(buf, 22).set(new Uint8Array(pngBuf));
+  return new Blob([buf], { type:'image/x-icon' });
+}
+
+/* =========================================================================
+   HEIC / HEIF 解码
+   浏览器原生解不了 HEIC, 本机的 GDI+ 也解不了(装了 HEIF 扩展但没装 HEVC 解码器)。
+   所以走 WASM: libs/libheif-bundle.js 自带解码器, 不依赖系统组件, 断网也能用。
+   代价是 1.4 MB —— 所以按需加载, 只有真的拖进 HEIC 时才去取, 不拖慢平时打开页面。
+   ========================================================================= */
+let HEIC就绪 = null;
+let HEIC模块 = null;
+function 载HEIC库(){
+  if (HEIC就绪) return HEIC就绪;
+  HEIC就绪 = new Promise((res, rej)=>{
+    if (window.libheif) return res();
+    const s = document.createElement('script');
+    s.src = 'libs/libheif-bundle.js';
+    s.onload = ()=> window.libheif ? res() : rej(new Error('HEIC 解码库加载了但没生效'));
+    s.onerror = ()=> rej(new Error('HEIC 解码库加载失败：libs/libheif-bundle.js 找不到或被损坏'));
+    document.head.appendChild(s);
+  }).then(()=>{
+    // 坑: 这个包是压缩过的 UMD, 挂到全局的 libheif 是个【工厂函数】, 不是模块本身。
+    // 必须调用一次才拿得到带 HeifDecoder 的模块对象 —— 直接 new libheif.HeifDecoder()
+    // 会报 "is not a constructor"。模块是同步返回的, calledRun 已为 true, 不用等 onRuntimeInitialized。
+    HEIC模块 = window.libheif();
+    if (!HEIC模块 || typeof HEIC模块.HeifDecoder !== 'function') {
+      throw new Error('HEIC 解码库结构不对，可能文件被损坏');
+    }
+  });
+  return HEIC就绪;
+}
+
+async function 解HEIC(file){
+  await 载HEIC库();
+  const buf = new Uint8Array(await file.arrayBuffer());
+  let imgs;
+  try { imgs = new HEIC模块.HeifDecoder().decode(buf); }
+  catch(e){ throw new Error('HEIC 解码失败：' + e.message); }
+  if (!imgs || !imgs.length) throw new Error('这个文件解不开，可能不是 HEIC，或用了不支持的编码');
+  const im = imgs[0];
+  const w = im.get_width(), h = im.get_height();
+  const 位图 = { data: new Uint8ClampedArray(w * h * 4), width: w, height: h };
+  const 出 = await new Promise((res, rej)=>{
+    // display 内部走 setTimeout, 所以只能等回调; 解不出来时回调收到 null
+    im.display(位图, r => r ? res(r) : rej(new Error('HEIC 解码失败')));
+  });
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  c.getContext('2d').putImageData(new ImageData(出.data, w, h), 0, 0);
+  return c;
+}
+
+/* =========================================================================
+   图片转换
+   ========================================================================= */
+// 统一的「拿一个能画到 canvas 上的图源」。HEIC 走 WASM 解成 canvas,
+// 其余交给浏览器的 createImageBitmap。
+async function 取图源(file){
+  const e = 扩展名(file.name);
+  if (e === 'heic' || e === 'heif') return await 解HEIC(file);
+  return await createImageBitmap(file);
+}
+
+async function 画布出图(file, 目标宽, 目标高){
+  const bmp = await 取图源(file);
+  let 宽 = bmp.width, 高 = bmp.height;
+  if (目标宽 > 0 || 目标高 > 0){
+    if (目标宽 > 0 && 目标高 > 0){ 宽 = 目标宽; 高 = 目标高; }
+    else if (目标宽 > 0){ 宽 = 目标宽; 高 = Math.round(bmp.height * 目标宽 / bmp.width); }
+    else { 高 = 目标高; 宽 = Math.round(bmp.width * 目标高 / bmp.height); }
+  }
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, 宽); c.height = Math.max(1, 高);
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  // JPEG 没有透明通道, 不铺白底的话透明区会变黑
+  if (['jpg','jpeg','bmp'].includes(String(arguments[3]||''))){ ctx.fillStyle = '#fff'; ctx.fillRect(0,0,c.width,c.height); }
+  ctx.drawImage(bmp, 0, 0, c.width, c.height);
+  bmp.close && bmp.close();
+  return c;
+}
+
+async function 浏览器转图片(file, 出格式, 参){
+  const c = await 画布出图(file, 参.宽, 参.高, 出格式);
+  const 尺寸 = { 宽: c.width, 高: c.height };
+  if (出格式 === 'bmp') return Object.assign({ blob: 编码BMP(c.getContext('2d').getImageData(0,0,c.width,c.height), c.width, c.height) }, 尺寸);
+  if (出格式 === 'ico') return Object.assign({ blob: await 编码ICO(c) }, 尺寸);
+  const mime = 出格式 === 'jpg' ? 'image/jpeg' : (出格式 === 'webp' ? 'image/webp' : 'image/png');
+  const blob = await new Promise(r => c.toBlob(r, mime, 参.质量/100));
+  if (!blob) throw new Error('浏览器无法编码 ' + 出格式);
+  // 兜底断言: 浏览器对不支持的格式会静默退回 PNG。真退回就宁可报错, 也别悄悄给用户一个错格式的文件。
+  if (blob.type !== mime) throw new Error('浏览器把 ' + 出格式 + ' 悄悄换成了 ' + blob.type + '，请改用本机服务转换');
+  return Object.assign({ blob }, 尺寸);
+}
+
+async function 服务转图片(file, 出格式, 参, 类型名){
+  需要服务('图片转 ' + 出格式.toUpperCase());
+  const 数据 = await blob转base64(file);
+  const r = await fetch(SVC + '/convert', {
+    method:'POST', headers:{'Content-Type':'application/json; charset=utf-8'},
+    body: JSON.stringify({ 任务:[{ 文件名:file.name, 数据, 类型:类型名||'图片', 输出格式:出格式,
+      质量:参.质量, 宽:参.宽||0, 高:参.高||0, 帧:参.帧||'1' }] })
+  });
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.错误 || '服务转换失败');
+  const one = j.结果[0];
+  if (!one || !one.ok) throw new Error((one && one.错误) || '服务转换失败');
+  return { 数据: one.数据, 文件名: one.文件名, 宽: one.宽, 高: one.高, 大小: one.大小 };
+}
+
+async function 转图片(项, 动作, 参){
+  const 入 = 项.扩展, 出 = 动作.出;
+  const 能读 = 浏览器可读.includes(入);
+  const 能出 = 浏览器可出.includes(出);
+  if (能读 && 能出){
+    const r = await 浏览器转图片(项.file, 出, 参);
+    return { 列表:[{ blob: r.blob, 文件名: 换扩展(项.file.name, 出), 宽: r.宽, 高: r.高 }] };
+  }
+  // 浏览器做不了 -> 交给本机服务
+  if (状态.服务 && 服务能读(入) && 服务能出(出)){
+    const r = await 服务转图片(项.file, 出, 参, '图片');
+    return { 列表:[{ blob: new Blob([Uint8Array.from(atob(r.数据), ch=>ch.charCodeAt(0))], {type:补MIME(r.文件名)}),
+                     文件名: r.文件名, 宽:r.宽, 高:r.高, 大小:r.大小 }] };
+  }
+  // 报错要给出【这个环境下真能做】的下一步。网页版上让人去双击 .bat 是白费力气。
+  需要服务('这个转换（' + 入 + ' → ' + 出 + '）');
+  if (!服务能读(入)) throw new Error('本机服务也解不了 .' + 入 + ' 格式');
+  throw new Error('本机服务也编不了 .' + 出 + ' 格式');
+}
+
+/* =========================================================================
+   PDF 工具（pdf-lib，纯浏览器，文件不上传）
+   ========================================================================= */
+function 解析页码(s, 总页){
+  if (!s || !s.trim()) return null;                 // null = 全部
+  const 出 = [];
+  s.split(/[,，\s]+/).filter(Boolean).forEach(seg=>{
+    const m = /^(\d+)\s*[-–~]\s*(\d+)$/.exec(seg);
+    if (m){ let a=+m[1], b=+m[2]; if(a>b){const t=a;a=b;b=t;} for(let i=a;i<=b;i++) 出.push(i); }
+    else if (/^\d+$/.test(seg)) 出.push(+seg);
+  });
+  const 干净 = [...new Set(出)].filter(n => n>=1 && n<=总页).sort((a,b)=>a-b);
+  if (!干净.length) throw new Error('页码「' + s + '」在这份 PDF（共 ' + 总页 + ' 页）里没有对应的页');
+  return 干净.map(n => n-1);
+}
+
+// 和 解析页码 的关键区别: 那个返回「集合」(去重 + 升序), 这个返回「序列」——
+// 顺序就是用户写的顺序, 重复也保留。选页重排要的正是序列语义, 用集合会把顺序吃掉。
+function 解析页序(s, 总页){
+  const 出 = [];
+  String(s||'').split(/[,，\s]+/).filter(Boolean).forEach(seg=>{
+    const m = /^(\d+)\s*[-–~]\s*(\d+)$/.exec(seg);
+    if (m){
+      const a = +m[1], b = +m[2];
+      const 步 = a <= b ? 1 : -1;            // 写 8-5 就倒着取, 倒序也是一种重排
+      for (let i = a; 步 > 0 ? i <= b : i >= b; i += 步) 出.push(i);
+    }
+    else if (/^\d+$/.test(seg)) 出.push(+seg);
+  });
+  if (!出.length) throw new Error('没有解析出页码。写清楚新页序，比如 3,1,5-7');
+  const 坏 = [...new Set(出.filter(n => n < 1 || n > 总页))];
+  if (坏.length) throw new Error('这些页码超出范围（该 PDF 共 ' + 总页 + ' 页）：' + 坏.join(', '));
+  return 出.map(n => n-1);
+}
+
+// 去掉扩展名。换扩展(name,'') 会留下一个尾点, 这里单独给一个干净的。
+function 主名(name){ return String(name).replace(/\.[^.]+$/, ''); }
+
+async function 转PDF(项, 动作, 参, 全部文件){
+  const { PDFDocument, degrees } = PDFLib;
+
+  if (动作.出 === '合并'){
+    if (全部文件.length < 2) throw new Error('合并至少需要 2 个 PDF');
+    const out = await PDFDocument.create();
+    for (const f of 全部文件){
+      const src = await PDFDocument.load(await f.file.arrayBuffer(), { ignoreEncryption:true });
+      const pages = await out.copyPages(src, src.getPageIndices());
+      pages.forEach(p => out.addPage(p));
+    }
+    return { 列表:[{ blob: new Blob([await out.save()], {type:'application/pdf'}), 文件名:'合并.pdf' }] };
+  }
+
+  if (动作.出 === '拆分'){
+    const src = await PDFDocument.load(await 项.file.arrayBuffer(), { ignoreEncryption:true });
+    const 页码 = 解析页码(参.页码, src.getPageCount()) || src.getPageIndices();
+    const 出 = [];
+    for (const i of 页码){
+      const out = await PDFDocument.create();
+      const [p] = await out.copyPages(src, [i]);
+      out.addPage(p);
+      const b = await out.save();
+      out.getPages()[0].setRotation && 0;
+      const nm = 换扩展(项.file.name, '').replace(/\.$/,'') + '_第' + (i+1) + '页.pdf';
+      出.push({ blob: new Blob([b], {type:'application/pdf'}), 文件名: nm });
+    }
+    return { 列表: 出 };
+  }
+
+  if (动作.出 === '图片转PDF'){
+    const out = await PDFDocument.create();
+    for (const f of 全部文件){
+      const buf = await f.file.arrayBuffer();
+      const e = 扩展名(f.file.name);
+      let img;
+      if (e === 'png') img = await out.embedPng(buf);
+      else if (e === 'jpg' || e === 'jpeg') img = await out.embedJpg(buf);
+      else {
+        // pdf-lib 只吃 PNG/JPG。其它格式先在浏览器里转成 PNG 再嵌入。
+        const c = await 画布出图(f.file, 0, 0, 'png');
+        const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+        img = await out.embedPng(await blob.arrayBuffer());
+      }
+      const p = out.addPage([img.width, img.height]);
+      p.drawImage(img, { x:0, y:0, width:img.width, height:img.height });
+    }
+    return { 列表:[{ blob: new Blob([await out.save()], {type:'application/pdf'}), 文件名:'图片合成.pdf' }] };
+  }
+
+  if (动作.出 === '旋转'){
+    const src = await PDFDocument.load(await 项.file.arrayBuffer(), { ignoreEncryption:true });
+    const 角度 = ((+参.旋转 % 360) + 360) % 360;
+    if (角度 !== 90 && 角度 !== 180 && 角度 !== 270) throw new Error('旋转角度只能是 90 / 180 / 270');
+    const 页 = src.getPages();
+    // 页码留空 = 全部页。注意是在「原有角度」上叠加, 不是直接设成 角度 ——
+    // 一份已经转过 90° 的扫描件再转 90°, 应该变成 180° 而不是又回到 90°。
+    (解析页码(参.页码, src.getPageCount()) || 页.map((_, i) => i)).forEach(i => {
+      const 原 = (页[i].getRotation().angle || 0) % 360;
+      页[i].setRotation(degrees((原 + 角度) % 360));
+    });
+    return { 列表:[{ blob: new Blob([await src.save()], {type:'application/pdf'}),
+                    文件名: 主名(项.file.name) + '_旋转' + 角度 + '.pdf' }] };
+  }
+
+  if (动作.出 === '选页'){
+    if (!参.页码 || !参.页码.trim()) throw new Error('「选页重排」得写清楚新页序，比如 3,1,5-7；留空没有意义');
+    const src = await PDFDocument.load(await 项.file.arrayBuffer(), { ignoreEncryption:true });
+    const 序 = 解析页序(参.页码, src.getPageCount());
+    const out = await PDFDocument.create();
+    (await out.copyPages(src, 序)).forEach(p => out.addPage(p));
+    return { 列表:[{ blob: new Blob([await out.save()], {type:'application/pdf'}),
+                    文件名: 主名(项.file.name) + '_重排.pdf' }] };
+  }
+
+  if (动作.出 === '属性'){
+    const src = await PDFDocument.load(await 项.file.arrayBuffer(), { ignoreEncryption:true });
+    // 留空就写空串 —— 语义是「以你填的为准」, 所以留空 = 清除, 而不是「保持不变」
+    src.setTitle(参.标题 || '');
+    src.setAuthor(参.作者 || '');
+    src.setModificationDate(new Date());
+    return { 列表:[{ blob: new Blob([await src.save()], {type:'application/pdf'}),
+                    文件名: 主名(项.file.name) + '_属性.pdf' }] };
+  }
+
+  throw new Error('未知的 PDF 操作：' + 动作.出);
+}
+
+/* =========================================================================
+   表格转换（SheetJS，纯浏览器）
+   ========================================================================= */
+// 猜纯文本表格的编码。只对 CSV/TXT 用 —— xlsx 这类二进制格式自带编码信息, 不适用。
+//
+// 顺序: 有 BOM 就听 BOM 的 → 否则按 UTF-8 严格解一遍, 解不通就当 GBK。
+// 「严格解」是这里的关键: 合法的 UTF-8 字节序列极少会在 GBK 文本里凑巧出现,
+// 所以解不通基本可以断定它不是 UTF-8。反过来 GBK 几乎能吞下任何字节, 兜底很安全。
+// 不能依赖 SheetJS 自己猜 —— 实测 GBK 的 CSV 它解出来是 ÐÕÃû 这种乱码, 且不报错。
+function 猜编码(ab){
+  const b = new Uint8Array(ab);
+  if (b.length >= 3 && b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF) return 'utf-8';
+  if (b.length >= 2 && b[0] === 0xFF && b[1] === 0xFE) return 'utf-16le';
+  if (b.length >= 2 && b[0] === 0xFE && b[1] === 0xFF) return 'utf-16be';
+  try { new TextDecoder('utf-8', { fatal:true }).decode(b); return 'utf-8'; }
+  catch(e){ return 'gbk'; }
+}
+
+// CSV 里的「数字」有个隐蔽得多的坑: SheetJS 默认把看起来像数字的字段转成 JS 数字,
+// 而 JS 数字是双精度浮点, 超过 15 位就存不准 —— 18 位的身份证号 / 健康证号会被
+// 静默改写(440101199001011234 读出来变成 ...260), 不报错、不提示, 拿到手才发现。
+// 转换工具改用户的数据是不可接受的, 所以 CSV/TXT 一律按 raw:true 读, 先原样保留字符串,
+// 再用 还原数字 把「确实安全的」那些还原成数字。
+function 还原数字(ws){
+  const 域 = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']) : null;
+  if (!域) return ws;
+  for (let r = 域.s.r; r <= 域.e.r; r++){
+    for (let c = 域.s.c; c <= 域.e.c; c++){
+      const 格 = ws[XLSX.utils.encode_cell({ r, c })];
+      if (!格 || 格.t !== 's' || typeof 格.v !== 'string') continue;
+      const s = 格.v;
+      // 只认最朴素的十进制写法。前导零(工号 007)、千分位、科学计数法、
+      // 百分号一律不动 —— 那些多半是"编号"而不是"数量", 保留原样更安全。
+      if (!/^-?(0|[1-9]\d*)(\.\d+)?$/.test(s)) continue;
+      const n = Number(s);
+      if (!isFinite(n)) continue;
+      if (s.includes('.')){
+        // 先去掉小数末尾无意义的零再比 —— "1.50" 和 "1.5" 是同一个数。若因为多写了个零
+        // 就留成文本, 同一个金额列里会一半是数字一半是文本, 比统一成哪种都更难用。
+        const 规范 = s.replace(/0+$/, '').replace(/\.$/, '');
+        if (String(n) !== 规范) continue;
+      } else {
+        // 整数必须用 isSafeInteger 严格把关: 它直接回答「这个数在双精度里精不精确」。
+        // 不能拿往返比对代替 —— JS 打印浮点取的是能往返的最短写法, 像
+        // 440101199001020000 这种末尾一串零的 18 位数字, 存进 double 时已经不是原值了,
+        // 打印出来却照样是这串字符, 只看字符串会把它误判成安全。
+        if (!Number.isSafeInteger(n)) continue;
+      }
+      格.t = 'n'; 格.v = n; 格.w = s;
+    }
+  }
+  return ws;
+}
+
+// 编码: 指定编码时的做法是先用 TextDecoder 解成字符串, 再让 SheetJS 按字符串读 ——
+// 这样完全绕开它自己的编码猜测, 用户选什么就是什么。
+async function 读表(file, 编码){
+  const ab = await file.arrayBuffer();
+  if (['csv','txt','tsv'].includes(扩展名(file.name))){
+    const 用 = (!编码 || 编码 === 'auto') ? 猜编码(ab) : 编码;
+    let 文;
+    try { 文 = new TextDecoder(用).decode(ab); }
+    catch(e){ throw new Error('这个浏览器不支持按 ' + 用 + ' 解码：' + e.message); }
+    const wb = XLSX.read(文, { type:'string', raw:true, cellDates:true, cellStyles:false });
+    wb.SheetNames.forEach(n => 还原数字(wb.Sheets[n]));
+    return wb;
+  }
+  // 注意: 这个打包版不支持 XLSX.readFile(拿不到 fs), 浏览器里用 read(array) 正好。
+  return XLSX.read(new Uint8Array(ab), { type:'array', cellDates:true, cellStyles:false });
+}
+
+async function 转表格(项, 动作, 参){
+  const wb = await 读表(项.file, 参.编码);
+  const 全部 = 参.工作表 === '*' ? wb.SheetNames : [参.工作表];
+  if (!全部.length) throw new Error('这个文件里没有工作表');
+  const 出 = [];
+
+  for (const 名 of 全部){
+    const ws = wb.Sheets[名];
+    if (!ws) continue;
+    const t = 动作.出;
+    let 干名 = 全部.length > 1 ? 名 : 换扩展(项.file.name, '').replace(/\.$/,'');
+    // 输出格式和输入相同时(典型场景: CSV 转 CSV, 目的是把 GBK 转成 UTF-8),
+    // 名字会和原文件一字不差, 存下来分不清哪个是新的。加个尾巴区分。
+    if (扩展名(项.file.name) === t) 干名 += '_转换';
+    const 安全 = String(干名).replace(/[\\/:*?"<>|]/g,'_');
+
+    if (t === 'csv' || t === 'txt'){
+      const s = XLSX.utils.sheet_to_csv(ws, { FS: 参.分隔符 === '\\t' ? '\t' : (参.分隔符 || ',') });
+      // 带 BOM, 否则 Excel 打开中文是乱码 —— 这是最常见的"转换后不能用"投诉
+      const blob = new Blob(['﻿' + s], { type:'text/csv;charset=utf-8' });
+      出.push({ blob, 文件名: 安全 + '.' + t });
+    } else if (t === 'json'){
+      // raw:true —— 让数字还是数字、文本还是文本。这张卡写的是「给程序读的结构化数据」,
+      // 全给成字符串的话, 下游拿到 "数量":"123" 还得自己转一遍, 那就不叫结构化数据了。
+      const rows = XLSX.utils.sheet_to_json(ws, { defval:null, raw:true });
+      // 但 raw 会带出 Date 对象, 而 JSON.stringify 按 UTC 序列化日期 —— 东八区下
+      // 2026-09-30 会变成 2026-09-29T16:00:00.000Z, 看着像凭空少了一天。
+      // 按本地时间还原成 "2026-09-30"(带时分秒的才补时间)。
+      const 本地 = v => {
+        if (!(v instanceof Date)) return v;
+        const p = n => String(n).padStart(2, '0');
+        const d = v.getFullYear() + '-' + p(v.getMonth()+1) + '-' + p(v.getDate());
+        const 有时分 = v.getHours() || v.getMinutes() || v.getSeconds();
+        return 有时分 ? d + ' ' + p(v.getHours()) + ':' + p(v.getMinutes()) + ':' + p(v.getSeconds()) : d;
+      };
+      const 转 = o => { const r = {}; for (const k in o) r[k] = 本地(o[k]); return r; };
+      const blob = new Blob([JSON.stringify(rows.map(转), null, 2)], { type:'application/json;charset=utf-8' });
+      出.push({ blob, 文件名: 安全 + '.json' });
+    } else if (t === 'html'){
+      const s = XLSX.utils.sheet_to_html(ws);
+      const blob = new Blob(['<!DOCTYPE html><meta charset="utf-8">\n' + s], { type:'text/html;charset=utf-8' });
+      出.push({ blob, 文件名: 安全 + '.html' });
+    } else if (t === 'xlsx'){
+      const one = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(one, ws, 名);
+      const buf = XLSX.write(one, { bookType:'xlsx', type:'array' });
+      出.push({ blob: new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), 文件名: 安全 + '.xlsx' });
+    }
+  }
+  if (!出.length) throw new Error('没有导出任何内容');
+  return { 列表: 出 };
+}
+
+/* =========================================================================
+   动作定义
+   ========================================================================= */
+const 图片动作表 = [
+  { 名:'转 JPG',  出:'jpg',  说明:'通用格式，照片首选，体积小' },
+  { 名:'转 PNG',  出:'png',  说明:'无损，保留透明背景' },
+  { 名:'转 WebP', 出:'webp', 说明:'同画质下体积最小，网页用' },
+  { 名:'转 BMP',  出:'bmp',  说明:'无压缩位图，老系统/工控常用' },
+  { 名:'转 ICO',  出:'ico',  说明:'网站图标，最大 256×256' },
+  // 说明里不要再写「需本机服务」—— 服务没启动时 建() 会另外挂一个「需本机服务」的角标,
+  // 两处都写就会变成「需本机服务需本机服务」。
+  { 名:'转 GIF',  出:'gif',  服务:true, 说明:'8 位调色板，适合图标和简单图形' },
+  { 名:'转 TIFF', 出:'tif',  服务:true, 说明:'印刷/扫描归档常用' }
+];
+const PDF动作表 = [
+  { 名:'PDF 转 JPG', 出:'jpg', 服务:true, 说明:'按原生像素 1:1 出图，清晰不缩水' },
+  { 名:'PDF 转 PNG', 出:'png', 服务:true, 说明:'同上，无损输出' },
+  { 名:'合并 PDF',   出:'合并', 说明:'多个 PDF 按顺序拼成一份' },
+  { 名:'拆分 PDF',   出:'拆分', 说明:'按页码范围拆成单独文件' },
+  { 名:'图片转 PDF', 出:'图片转PDF', 说明:'多张图片合成一份 PDF' },
+  { 名:'旋转 PDF',  出:'旋转',  说明:'扫描件方向不对时用，可只转指定页' },
+  { 名:'选页重排',  出:'选页',  说明:'按你给的顺序输出：提取、删页、调页序' },
+  { 名:'PDF 属性',  出:'属性',  说明:'写入或清除标题与作者' }
+];
+const 表格动作表 = [
+  { 名:'转 CSV',  出:'csv',  说明:'纯文本表格，通用性最好' },
+  { 名:'转 XLSX', 出:'xlsx', 说明:'标准 Excel 工作簿' },
+  { 名:'转 JSON', 出:'json', 说明:'给程序读的结构化数据' },
+  { 名:'转 HTML', 出:'html', 说明:'网页表格' }
+];
+
+/* =========================================================================
+   界面渲染
+   ========================================================================= */
+function 渲染服务状态(探测中){
+  const b = $('svcBadge'), t = $('svcText'), cap = $('capTip');
+  if (探测中){
+    b.className = 'badge busy';
+    t.textContent = '正在检测…';
+    return;                              // 检测中先别动下面的提示, 免得闪
+  }
+  if (状态.服务){
+    b.className = 'badge on';
+    t.textContent = '增强模式已就绪';
+    cap.innerHTML = '<div class="tip ok">本机服务已连接。TIFF、ICO、GIF 以及 PDF 精确出图都可用。</div>';
+  } else if (是托管打开){
+    // 托管在公网上：连不上是本 browser 策略的必然结果，提示「去启动服务」是误导
+    b.className = 'badge off';
+    t.textContent = '纯浏览器模式';
+    cap.innerHTML = '<div class="tip warn"><b>网页版用不了本机服务</b>，已降级为纯浏览器模式：'
+      + '常见的图片互转和全部 PDF 编辑、表格转换照常可用；'
+      + '但 <b>TIFF / ICO 解码</b>、<b>GIF / TIFF 输出</b>、<b>PDF 转图片</b> 这几项做不了。'
+      + '这是浏览器的安全策略 —— 公网上的网页不允许访问你电脑里的服务，属于正常现象。<br>'
+      + '想要完整功能：把本仓库整个下载到本机，双击里面的 <code>index.html</code> 打开，'
+      + '再双击 <code>启动服务.bat</code>，那几项就都能用了。'
+      + '<br>无论哪种模式，<b>文件都只在这台电脑上处理，不会上传</b>。</div>';
+  } else {
+    b.className = 'badge off';
+    t.textContent = '纯浏览器模式';
+    cap.innerHTML = '<div class="tip warn"><b>本机服务未启动</b>，已降级为纯浏览器模式：'
+      + '常见的图片互转和全部 PDF 编辑、表格转换照常可用；'
+      + '但 <b>TIFF / ICO 解码</b>、<b>GIF / TIFF 输出</b>、<b>PDF 转图片</b> 这几项做不了（已置灰）。'
+      + '需要的话双击目录里的 <code>启动服务.bat</code>，再<b>点一下右上角的状态标签</b>就会重新检测，不用刷新页面。</div>';
+  }
+}
+
+function 渲染动作(){
+  const 图 = 状态.文件.filter(f=>f.类型==='图片');
+  const P = 状态.文件.filter(f=>f.类型==='PDF');
+  const T = 状态.文件.filter(f=>f.类型==='表格');
+
+  $('secImg').style.display = 图.length ? '' : 'none';
+  $('secPdf').style.display = P.length ? '' : 'none';
+  $('secTbl').style.display = T.length ? '' : 'none';
+  $('imgCount').textContent = 图.length ? 图.length + ' 个图片文件' : '';
+  $('pdfCount').textContent = P.length ? P.length + ' 个 PDF' : '';
+  $('tblCount').textContent = T.length ? T.length + ' 个表格文件' : '';
+
+  const 建 = (host, 表, 组, 选中) => {
+    host.innerHTML = '';
+    表.forEach(a=>{
+      let 可用 = true, 原因 = '';
+      if (a.服务){
+        if (!状态.服务){ 可用 = false; 原因 = '需本机服务'; }
+      }
+      if (组 === '图片'){
+        // 再按实际输入格式判一次: 比如输入全是 PNG, 那 TIFF 输出在纯浏览器下也不可用
+        const 样本 = 图[0];
+        if (可用 && 样本){
+          const 能 = (浏览器可读.includes(样本.扩展) && 浏览器可出.includes(a.出)) ||
+                     (状态.服务 && 服务能读(样本.扩展) && 服务能出(a.出));
+          if (!能){ 可用 = false; 原因 = '此输入格式不支持'; }
+        }
+      }
+      if (组 === 'PDF' && a.出 === '合并' && P.length < 2){ 可用 = false; 原因 = '需要至少 2 个 PDF'; }
+      const b = document.createElement('button');
+      b.className = 'act' + (选中 === a ? ' sel' : '');
+      b.disabled = !可用;
+      b.innerHTML = '<b>' + a.名 + '</b><small>' + a.说明 + '</small>' + (原因 ? '<span class="need">' + 原因 + '</span>' : '');
+      if (可用) b.onclick = ()=>{ 选中动作(组, a); };
+      host.appendChild(b);
+    });
+  };
+  建($('imgActs'), 图片动作表, '图片', 状态.图片动作);
+  建($('pdfActs'), PDF动作表, 'PDF', 状态.PDF动作);
+  建($('tblActs'), 表格动作表, '表格', 状态.表格动作);
+
+  $('imgPanel').style.display = 状态.图片动作 ? '' : 'none';
+  $('pdfPanel').style.display = 状态.PDF动作 ? '' : 'none';
+  $('tblPanel').style.display = 状态.表格动作 ? '' : 'none';
+
+  if (状态.PDF动作){
+    const o = 状态.PDF动作.出;
+    $('pdfPageRow').style.display  = (o==='jpg'||o==='png'||o==='旋转'||o==='选页') ? '' : 'none';
+    $('pdfSizeRow').style.display  = (o==='jpg'||o==='png') ? '' : 'none';
+    $('pdfQRow').style.display     = (o==='jpg'||o==='png') ? '' : 'none';
+    $('pdfMergeRow').style.display = (o==='合并') ? '' : 'none';
+    $('pdfRotRow').style.display   = (o==='旋转') ? '' : 'none';
+    $('pdfOrderRow').style.display = (o==='选页') ? '' : 'none';
+    $('pdfTitleRow').style.display = (o==='属性') ? '' : 'none';
+    $('pdfAuthorRow').style.display= (o==='属性') ? '' : 'none';
+  }
+  if (状态.表格动作){
+    $('tblCsvRow').style.display = (状态.表格动作.出==='csv'||状态.表格动作.出==='txt') ? '' : 'none';
+    // 编码只对纯文本表格有意义。手里全是 xlsx 时这一行不出现, 免得让人以为要填。
+    $('tblEncRow').style.display = 状态.文件.some(f => f.类型==='表格' && ['csv','txt','tsv'].includes(扩展名(f.file.name))) ? '' : 'none';
+  }
+  const 就绪 = !!(状态.图片动作 || 状态.PDF动作 || 状态.表格动作);
+  $('goBtn').disabled = !就绪 || !状态.文件.length || 状态.忙;
+  $('goNote').textContent = 就绪 ? '' : '请先选择一种转换方式';
+}
+
+function 选中动作(组, a){
+  if (组 === '图片') 状态.图片动作 = a;
+  if (组 === 'PDF')  状态.PDF动作 = a;
+  if (组 === '表格') 状态.表格动作 = a;
+  渲染动作();
+}
+
+function 渲染文件(){
+  const host = $('fileList');
+  $('secFiles').style.display = 状态.文件.length ? '' : 'none';
+  $('fileCount').textContent = 状态.文件.length ? 状态.文件.length + ' 个' : '';
+  host.innerHTML = '';
+  状态.文件.forEach((f, i)=>{
+    const row = document.createElement('div');
+    row.className = 'frow' + (f.错误 ? ' bad' : '');
+    row.innerHTML = '<div class="ic">' + (f.扩展||'?').slice(0,4).toUpperCase() + '</div>'
+      + '<div class="nm"><b>' + f.file.name + '</b><small>' + 体积(f.file.size)
+      + (f.错误 ? ' · ' + f.错误 : '') + '</small></div>'
+      + '<span class="st ' + (f.状态==='ok'?'ok':f.状态==='no'?'no':f.状态==='run'?'run':'wait') + '">'
+      + (f.状态==='ok'?'已转换':f.状态==='no'?'失败':f.状态==='run'?'转换中':'待转换') + '</span>';
+    const rm = document.createElement('button');
+    rm.className = 'rm'; rm.textContent = '×'; rm.title = '移除';
+    rm.onclick = ()=>{ 状态.文件.splice(i,1); 渲染文件(); 渲染动作(); };
+    row.appendChild(rm);
+    host.appendChild(row);
+  });
+  渲染动作();
+}
+
+function 渲染结果(){
+  const host = $('resList');
+  // 这里必须显式写 'block', 不能写 ''。CSS 里有一条 #resCard{display:none} 负责初始隐藏,
+  // 赋空字符串只是清掉内联样式, 那条 CSS 规则立刻接管 —— 结果是转换成功了、DOM 也渲染了,
+  // 但整个结果区永远不显示, 用户根本找不到下载入口。别处写 '' 都没事, 是因为那些元素靠
+  // HTML 内联 style="display:none" 隐藏, 清掉内联样式就恢复默认可见, 没有 CSS 规则兜底。
+  $('resCard').style.display = 状态.结果.length ? 'block' : 'none';
+  const 成 = 状态.结果.filter(r=>r.ok), 败 = 状态.结果.filter(r=>!r.ok);
+  $('resCount').textContent = 成.length + ' 个成功' + (败.length ? ' · ' + 败.length + ' 个失败' : '');
+  host.innerHTML = '';
+  状态.结果.forEach(r=>{
+    const row = document.createElement('div');
+    row.className = 'frow' + (r.ok ? '' : ' bad');
+    const 副 = r.ok ? (体积(r.blob.size) + (r.宽 ? ' · ' + r.宽 + '×' + r.高 : '') + ' · 来自 ' + r.来源)
+                    : ('来自 ' + r.来源);
+    row.innerHTML = '<div class="ic">' + (扩展名(r.文件名)||'?').slice(0,4).toUpperCase() + '</div>'
+      + '<div class="nm"><b>' + (r.文件名 || r.来源) + '</b><small>' + 副 + '</small></div>';
+    if (r.ok){
+      const d = document.createElement('div');
+      d.className = 'dl';
+      const a = document.createElement('a');
+      a.textContent = '下载'; a.href = URL.createObjectURL(r.blob); a.download = r.文件名;
+      a.onclick = ()=>{ r.已下载 = true; };   // 记下来, 离开页面前就不必再拦
+      d.appendChild(a);
+      if (window.showSaveFilePicker){
+        const b2 = document.createElement('a');
+        b2.textContent = '保存到…'; b2.href = '#';
+        b2.onclick = async (ev)=>{
+          ev.preventDefault();
+          try {
+            const h = await window.showSaveFilePicker({ suggestedName: r.文件名 });
+            const w = await h.createWritable(); await w.write(r.blob); await w.close();
+            r.已下载 = true;
+          } catch(e){ if (e.name !== 'AbortError') alert('保存失败：' + e.message); }
+        };
+        d.appendChild(b2);
+      }
+      row.appendChild(d);
+    }
+    host.appendChild(row);
+  });
+  $('zipBtn').style.display = 成.length > 1 ? '' : 'none';
+}
+
+/* =========================================================================
+   加文件
+   ========================================================================= */
+function 加文件(list){
+  const 新 = [];
+  for (const f of list){
+    const t = 类型(f.name);
+    const e = 扩展名(f.name);
+    const 项 = { file:f, 扩展:e, 类型:t, 状态:'wait', 错误:'' };
+    if (t === '其他') 项.错误 = '不认识的文件类型';
+    else if (t === '图片' && !浏览器可读.includes(e) && !服务能读(e)){
+      项.错误 = 状态.服务 ? '本机服务也解不了这个图片格式' : '这个图片格式需要本机服务（未启动）';
+    }
+    新.push(项);
+  }
+  // 按类型分组排列, 让同类文件挨在一起
+  const 序 = { '图片':0, 'PDF':1, '表格':2, '其他':3 };
+  状态.文件 = 状态.文件.concat(新).sort((a,b)=> 序[a.类型] - 序[b.类型]);
+  // 有可用文件时自动选一个默认动作, 省一步点击
+  const 有图 = 状态.文件.some(f=>f.类型==='图片' && !f.错误);
+  const 有P  = 状态.文件.some(f=>f.类型==='PDF');
+  const 有T  = 状态.文件.some(f=>f.类型==='表格');
+  if (有图 && !状态.图片动作) 状态.图片动作 = 图片动作表[0];
+  if (有P  && !状态.PDF动作)  状态.PDF动作  = PDF动作表[0];
+  if (有T  && !状态.表格动作) 状态.表格动作 = 表格动作表[0];
+  渲染文件();
+}
+
+/* =========================================================================
+   执行
+   ========================================================================= */
+function 读参数(){
+  const 参 = {};
+  参.质量 = +$('imgQ').value;
+  参.宽 = +$('imgW').value || 0;
+  参.高 = +$('imgH').value || 0;
+  参.帧 = $('imgFrame').value;
+  参.页码 = $('pdfPages').value;
+  参.旋转 = +$('pdfRot').value || 90;
+  参.标题 = $('pdfTitle').value;
+  参.作者 = $('pdfAuthor').value;
+  参.PDF模式 = $('pdfMode').value;
+  参.DPI = +$('pdfDpi').value || 0;
+  参.目标宽 = +$('pdfPx').value || 0;
+  参.PDF质量 = +$('pdfQ').value;
+  参.工作表 = $('tblSheet').value;
+  参.分隔符 = $('tblDelim').value;
+  参.编码   = $('tblEnc').value;
+  return 参;
+}
+
+async function 执行(){
+  if (状态.忙) return;
+  const 参 = 读参数();
+  const 出 = [];
+  状态.忙 = true; $('goBtn').disabled = true; $('goBtn').textContent = '转换中…';
+  $('resCard').style.display = 'none';
+  状态.结果 = [];
+
+  const 按组 = (组) => 状态.文件.filter(f => f.类型 === 组 && !f.错误);
+
+  try {
+    // ---- 图片 ----
+    if (状态.图片动作){
+      for (const 项 of 按组('图片')){
+        项.状态 = 'run'; 渲染文件();
+        try {
+          const r = await 转图片(项, 状态.图片动作, 参);
+          r.列表.forEach(x => 状态.结果.push({ ok:true, blob:x.blob, 文件名:x.文件名, 宽:x.宽, 高:x.高, 来源:项.file.name }));
+          项.状态 = 'ok';
+        } catch(e){ 项.状态 = 'no'; 项.错误 = e.message; 状态.结果.push({ ok:false, 来源:项.file.name, 错误:e.message }); }
+        渲染文件();
+      }
+    }
+
+    // ---- PDF ----
+    if (状态.PDF动作){
+      const P = 按组('PDF');
+      const 多文件 = ['合并','图片转PDF'].includes(状态.PDF动作.出);
+      if (多文件){
+        // 合并类: 整组一起处理一次
+        const 用 = 状态.PDF动作.出 === '图片转PDF'
+          ? 状态.文件.filter(f => f.类型==='图片' && !f.错误).concat(P)
+          : P;
+        用.forEach(f => { f.状态='run'; }); 渲染文件();
+        try {
+          const r = await 转PDF(null, 状态.PDF动作, 参, 用);
+          r.列表.forEach(x => 状态.结果.push({ ok:true, blob:x.blob, 文件名:x.文件名, 来源:用.length + ' 个文件' }));
+          用.forEach(f => { f.状态='ok'; });
+        } catch(e){ 用.forEach(f => { f.状态='no'; f.错误 = e.message; }); 状态.结果.push({ ok:false, 来源:'合并', 错误:e.message }); }
+        渲染文件();
+      } else {
+        for (const 项 of P){
+          项.状态 = 'run'; 渲染文件();
+          try {
+            // 服务类动作(PDF 出图)不能走 转PDF —— 那是结构性操作(合并/拆分/图片转PDF),
+            // 它不认 jpg/png, 会抛「未知的 PDF 操作」。必须先分流。
+            if (状态.PDF动作.服务){
+              const r2 = await 服务转PDF出图(项, 状态.PDF动作, 参);
+              r2.forEach(x => 状态.结果.push(x));
+            } else {
+              const r = await 转PDF(项, 状态.PDF动作, 参, [项]);
+              r.列表.forEach(x => 状态.结果.push({ ok:true, blob:x.blob, 文件名:x.文件名, 来源:项.file.name }));
+            }
+            项.状态 = 'ok';
+          } catch(e){ 项.状态 = 'no'; 项.错误 = e.message; 状态.结果.push({ ok:false, 来源:项.file.name, 错误:e.message }); }
+          渲染文件();
+        }
+      }
+    }
+
+    // ---- 表格 ----
+    if (状态.表格动作){
+      for (const 项 of 按组('表格')){
+        项.状态 = 'run'; 渲染文件();
+        try {
+          const r = await 转表格(项, 状态.表格动作, 参);
+          r.列表.forEach(x => 状态.结果.push({ ok:true, blob:x.blob, 文件名:x.文件名, 来源:项.file.name }));
+          项.状态 = 'ok';
+        } catch(e){ 项.状态 = 'no'; 项.错误 = e.message; 状态.结果.push({ ok:false, 来源:项.file.name, 错误:e.message }); }
+        渲染文件();
+      }
+    }
+  } finally {
+    状态.忙 = false;
+    $('goBtn').disabled = false; $('goBtn').textContent = '开始转换';
+    渲染结果();
+  }
+}
+
+// PDF 出图必须走服务 —— 浏览器没有能按原生像素渲染 PDF 的引擎
+async function 服务转PDF出图(项, 动作, 参){
+  需要服务('PDF 转 ' + String(动作.出).toUpperCase());
+  const 数据 = await blob转base64(项.file);
+  const 出格式 = 动作.出;   // 'jpg' 或 'png'
+  const t = { 文件名:项.file.name, 数据, 类型:'PDF', 输出格式:出格式, 质量:参.PDF质量 };
+  if (参.页码 && 参.页码.trim()) t.页码 = 参.页码.split(/[,，\s]+/).filter(s=>/^\d+$/.test(s)).map(Number);
+  if (参.PDF模式 === 'dpi') t.DPI = 参.DPI;
+  else if (参.PDF模式 === 'px') t.目标宽 = 参.目标宽;
+  // 默认 auto: 不传 DPI 也不传目标宽, 引擎自己取嵌入图原生宽
+  const r = await fetch(SVC + '/convert', {
+    method:'POST', headers:{'Content-Type':'application/json; charset=utf-8'},
+    body: JSON.stringify({ 任务:[t] })
+  });
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.错误 || 'PDF 出图失败');
+  return j.结果.map(o => o.ok
+    ? { ok:true, blob: new Blob([Uint8Array.from(atob(o.数据), ch=>ch.charCodeAt(0))], {type:补MIME(o.文件名)}), 文件名:o.文件名, 宽:o.宽, 高:o.高, 来源:项.file.name }
+    : { ok:false, 来源:项.file.name, 错误:o.错误 });
+}
+
+/* =========================================================================
+   事件绑定
+   ========================================================================= */
+$('drop').onclick = ()=> $('picker').click();
+$('picker').onchange = (e)=>{ 加文件(e.target.files); e.target.value=''; };
+['dragenter','dragover'].forEach(ev => $('drop').addEventListener(ev, e=>{ e.preventDefault(); $('drop').classList.add('over'); }));
+['dragleave','drop'].forEach(ev => $('drop').addEventListener(ev, e=>{ e.preventDefault(); $('drop').classList.remove('over'); }));
+$('drop').addEventListener('drop', e=>{ if (e.dataTransfer && e.dataTransfer.files) 加文件(e.dataTransfer.files); });
+// 整页都接受拖放, 免得手一歪掉到页面空白处浏览器直接打开文件
+window.addEventListener('dragover', e=>e.preventDefault());
+window.addEventListener('drop', e=>e.preventDefault());
+
+$('imgQ').oninput = ()=> $('imgQV').textContent = $('imgQ').value;
+$('pdfQ').oninput = ()=> $('pdfQV').textContent = $('pdfQ').value;
+$('pdfMode').onchange = ()=>{
+  const m = $('pdfMode').value;
+  $('pdfDpi').style.display = m==='dpi' ? '' : 'none';
+  $('pdfPx').style.display  = m==='px'  ? '' : 'none';
+};
+$('goBtn').onclick = 执行;
+$('clearBtn').onclick = ()=>{ 状态.文件=[]; 状态.结果=[]; 渲染文件(); 渲染结果(); };
+$('againBtn').onclick = ()=>{ 状态.结果=[]; 状态.文件.forEach(f=>{ f.状态='wait'; f.错误=''; }); 渲染结果(); 渲染文件(); window.scrollTo({top:0,behavior:'smooth'}); };
+$('zipBtn').onclick = async ()=>{
+  const zip = new JSZip();
+  const 成 = 状态.结果.filter(r=>r.ok);
+  成.forEach(r => zip.file(r.文件名, r.blob));
+  const blob = await zip.generateAsync({ type:'blob' });
+  下载(blob, '转换结果.zip');
+  成.forEach(r => { r.已下载 = true; });
+};
+
+// 转换结果只在内存里, 刷新或关掉页面就全没了 —— 而重做一遍可能是几十个文件。
+// 还有没下载的结果时先拦一下。浏览器只允许显示它自己的通用文案, 改不了, 但拦住就够了。
+window.addEventListener('beforeunload', (e)=>{
+  if (状态.结果.some(r => r.ok && !r.已下载)){
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+/* =========================================================================
+   本机服务探活: 探不到就降级成纯浏览器模式
+   ========================================================================= */
+// 服务往往比页面晚启动(先开了页面, 才发现要转 TIFF)。所以探活不能只在加载时做一次 ——
+// 那会让用户遇到「明明启动了服务, 界面还说未启动」, 而解法「刷新页面」毫无提示可言。
+let 探测中 = false;
+async function 探测服务(){
+  const 旧 = 状态.服务 ? JSON.stringify(状态.服务) : '';
+  try {
+    const ctl = new AbortController();
+    const tm = setTimeout(()=>ctl.abort(), 1500);
+    const r = await fetch(SVC + '/health', { signal: ctl.signal, cache:'no-store' });
+    clearTimeout(tm);
+    const j = await r.json();
+    状态.服务 = (j && j.ok) ? j : null;
+  } catch(e){ 状态.服务 = null; }
+  return 旧 !== (状态.服务 ? JSON.stringify(状态.服务) : '');
+}
+
+async function 重新检测服务(手动){
+  if (探测中) return;
+  探测中 = true;
+  if (手动) 渲染服务状态(true);      // 手动点才给"正在检测"的反馈; 自动重探不打扰
+  const 变了 = await 探测服务();
+  探测中 = false;
+  渲染服务状态();
+  if (变了 || 手动) 渲染动作();      // 服务上线/掉线会决定哪些动作能点, 要重画
+}
+
+$('svcBadge').title = 是托管打开 ? '网页版连不上本机服务，点一下看说明' : '点一下重新检测本机服务';
+$('svcBadge').onclick = ()=>重新检测服务(true);
+
+// 切回本窗口时顺手重探一次。3 秒内不重复 —— 焦点事件很密集, 每次窗口切换都发请求没必要。
+let 上次探测 = Date.now();
+window.addEventListener('focus', ()=>{
+  const 今 = Date.now();
+  if (今 - 上次探测 < 3000) return;
+  上次探测 = 今;
+  重新检测服务(false);
+});
+
+(async function 启动(){
+  await 重新检测服务(false);
+})();
+</script>
+</body>
+</html>
