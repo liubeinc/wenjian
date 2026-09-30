@@ -156,6 +156,18 @@ header{background:var(--card);border-bottom:1px solid var(--line);margin-bottom:
 
   <div id="capTip"></div>
 
+  <!-- 文件列表。放在动作区上面: 先看见自己拖进来了什么, 再挑要转成什么 ——
+       反过来的话, 文件一多就得先划过一整屏动作卡片才能确认文件收对了没有。 -->
+  <section class="sec" id="secFiles" style="display:none">
+    <div class="sec-h"><h2>待转换文件</h2><em id="fileCount"></em></div>
+    <div class="files" id="fileList"></div>
+    <div class="bar">
+      <button class="btn pri" id="goBtn" disabled>开始转换</button>
+      <button class="btn" id="clearBtn">清空</button>
+      <span class="note" id="goNote"></span>
+    </div>
+  </section>
+
   <!-- 图片 -->
   <section class="sec" id="secImg" style="display:none">
     <div class="sec-h"><h2>图片转换</h2><em id="imgCount"></em></div>
@@ -260,17 +272,6 @@ header{background:var(--card);border-bottom:1px solid var(--line);margin-bottom:
         <select id="tblDelim"><option value=",">逗号 ,</option><option value=";">分号 ;</option><option value="\t">制表符</option></select>
         <span class="hint">带 UTF-8 BOM，Excel 打开中文不乱码</span>
       </div>
-    </div>
-  </section>
-
-  <!-- 文件列表 -->
-  <section class="sec" id="secFiles" style="display:none">
-    <div class="sec-h"><h2>待转换文件</h2><em id="fileCount"></em></div>
-    <div class="files" id="fileList"></div>
-    <div class="bar">
-      <button class="btn pri" id="goBtn" disabled>开始转换</button>
-      <button class="btn" id="clearBtn">清空</button>
-      <span class="note" id="goNote"></span>
     </div>
   </section>
 
