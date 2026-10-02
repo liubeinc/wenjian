@@ -61,6 +61,17 @@ header{background:var(--card);border-bottom:1px solid var(--line);margin-bottom:
   font-size:13px;color:var(--tx2);line-height:1.55}
 .pe-cap b{display:block;color:var(--tx);font-size:13.5px;margin-bottom:3px}
 
+/* ---- 提取重写 ---- */
+#reText{
+  width:100%;min-height:320px;display:block;resize:vertical;
+  font:13px/1.75 "Microsoft YaHei","PingFang SC",monospace;
+  padding:12px 14px;border:1px solid var(--line);border-radius:8px;
+  background:#fff;color:var(--tx);
+}
+#reText:focus{outline:2px solid var(--ac-line);outline-offset:-1px;border-color:var(--ac)}
+#reOut{font-size:12.5px;color:var(--tx2)}
+#reOut a{color:var(--ac);font-weight:600}
+
 /* ---- 拖拽区 ---- */
 .drop{
   background:var(--card);border:1.5px dashed var(--line);border-radius:var(--r);
@@ -220,6 +231,7 @@ header{background:var(--card);border-bottom:1px solid var(--line);margin-bottom:
   <div class="modes">
     <button class="mode on" id="modeConvBtn">格式转换</button>
     <button class="mode" id="modeEditBtn">PDF 在线编辑</button>
+    <button class="mode" id="modeReBtn">提取重写</button>
   </div>
 </header>
 
@@ -299,6 +311,19 @@ header{background:var(--card);border-bottom:1px solid var(--line);margin-bottom:
       <div class="prow" id="pdfMergeRow" style="display:none">
         <label>顺序</label>
         <span class="hint">按上面文件列表的顺序合并，可用 ↑ 调整</span>
+      </div>
+      <div class="prow" id="pdfWordRow" style="display:none">
+        <label>整理方式</label>
+        <select id="pdfWordMode">
+          <option value="line">按行还原（表格不会散）</option>
+          <option value="para">拼成段落（读着顺，但表格会串）</option>
+        </select>
+        <label style="margin-left:6px">字体</label>
+        <select id="pdfWordFont"></select>
+        <label style="margin-left:6px">字号</label>
+        <input type="number" id="pdfWordSize" value="12" min="6" max="36" step="0.5" style="min-width:64px">
+        <label style="margin-left:6px">行距</label>
+        <input type="number" id="pdfWordLH" value="1.6" min="1" max="3" step="0.1" style="min-width:64px">
       </div>
       <div class="prow" id="pdfRotRow" style="display:none">
         <label>旋转</label>
@@ -402,6 +427,61 @@ header{background:var(--card);border-bottom:1px solid var(--line);margin-bottom:
     </div>
   </section>
 
+</div>
+
+<!-- 提取重写的落地页。跟「在线编辑」分开, 是因为产出物根本不同: 编辑是把原件改几个字、
+     版式原样保留; 重写是把文字抽出来重新排一份新文档, 版式不复原 —— 也不假装复原。
+     混在一个入口里, 用户会以为导出的是原件。 -->
+<div class="wrap" id="wrapRe" style="display:none">
+
+  <div class="drop" id="reDrop">
+    <b>把 PDF 拖到这里，或 <span class="pick">点击选择</span></b>
+    <small>把文字抽出来，改完导成一份新的 Word 或 PDF</small>
+    <input type="file" id="rePicker" accept="application/pdf,.pdf" hidden>
+  </div>
+
+  <div id="reTip" class="tip err" style="display:none"></div>
+
+  <div id="reWork" style="display:none">
+    <section class="sec">
+      <div class="sec-h"><h2>抽出来的文字</h2><em id="reMeta"></em></div>
+      <div class="panel">
+        <div class="prow">
+          <label>整理方式</label>
+          <div class="seg" id="reMode">
+            <button data-m="line" class="on">按行还原</button>
+            <button data-m="para">拼成段落</button>
+          </div>
+          <span class="hint" id="reModeHint"></span>
+        </div>
+        <textarea id="reText" spellcheck="false" placeholder="这里就是抽出来的文字，直接改。"></textarea>
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="sec-h"><h2>导出</h2><em>产出是一份新文档，不是原件</em></div>
+      <div class="panel">
+        <div class="prow">
+          <label>字体</label>
+          <select id="reFont"></select>
+          <label style="margin-left:6px">字号</label>
+          <input type="number" id="reSize" min="6" max="36" step="0.5" value="12">
+          <label style="margin-left:6px">行距</label>
+          <input type="number" id="reLH" min="1" max="3" step="0.1" value="1.6">
+        </div>
+        <div class="prow">
+          <button class="btn pri" id="reDocx">导出 Word（.docx）</button>
+          <button class="btn" id="rePdf">导出 PDF</button>
+          <span id="reOut"></span>
+        </div>
+      </div>
+      <div class="note" style="line-height:1.75;margin-top:10px">
+        <b>这里不做版式还原。</b>PDF 里没有「段落」「表格」「一行字」，只有摆到坐标上的字形。
+        所以抽出来的是一行行的文字，不是原来的排版 —— 表格会变成一列一列的文字，印章和图片不会带过来。
+        想要版式原样保留、只改几个字，请用上面的「PDF 在线编辑」。
+      </div>
+    </section>
+  </div>
 </div>
 
 <!-- PDF 编辑器。全屏覆盖层, 挂在 .wrap 外面(要盖住整页), 只在点「编辑」时显示。
@@ -982,6 +1062,10 @@ const 图片动作表 = [
 const PDF动作表 = [
   { 名:'PDF 转 JPG', 出:'jpg', 服务:true, 说明:'按原生像素 1:1 出图，清晰不缩水' },
   { 名:'PDF 转 PNG', 出:'png', 服务:true, 说明:'同上，无损输出' },
+  // 不还原版式, 也不假装还原 —— PDF 里没有「段落」「行」, 只有摆到坐标上的字形。
+  // 抽出文字重排成一份新 Word, 给「内容要拿去改 / 要粘到别处」用;
+  // 想保持原样只改几个字, 走「PDF 在线编辑」。放在两个出图动作后面, 同属「转出另一种格式」。
+  { 名:'PDF 转 Word', 出:'docx', 说明:'抽出文字排成 .docx，不还原原版式' },
   { 名:'合并 PDF',   出:'合并', 说明:'多个 PDF 按顺序拼成一份' },
   { 名:'拆分 PDF',   出:'拆分', 说明:'按页码范围拆成单独文件' },
   { 名:'图片转 PDF', 出:'图片转PDF', 说明:'多张图片合成一份 PDF' },
@@ -1124,6 +1208,7 @@ function 渲染动作(){
     $('pdfSizeRow').style.display  = (o==='jpg'||o==='png') ? '' : 'none';
     $('pdfQRow').style.display     = (o==='jpg'||o==='png') ? '' : 'none';
     $('pdfMergeRow').style.display = (o==='合并') ? '' : 'none';
+    $('pdfWordRow').style.display  = (o==='docx') ? '' : 'none';
     $('pdfRotRow').style.display   = (o==='旋转') ? '' : 'none';
     $('pdfOrderRow').style.display = (o==='选页') ? '' : 'none';
     $('pdfTitleRow').style.display = (o==='属性') ? '' : 'none';
@@ -1278,6 +1363,10 @@ function 读参数(){
   参.DPI = +$('pdfDpi').value || 0;
   参.目标宽 = +$('pdfPx').value || 0;
   参.PDF质量 = +$('pdfQ').value;
+  参.Word方式 = $('pdfWordMode').value;
+  参.Word字体 = $('pdfWordFont').value;
+  参.Word字号 = +$('pdfWordSize').value || 12;
+  参.Word行距 = +$('pdfWordLH').value || 1.6;
   参.工作表 = $('tblSheet').value;
   参.分隔符 = $('tblDelim').value;
   参.编码   = $('tblEnc').value;
@@ -1333,6 +1422,10 @@ async function 执行(){
             if (状态.PDF动作.服务){
               const r2 = await 服务转PDF出图(项, 状态.PDF动作, 参);
               r2.forEach(x => 状态.结果.push(x));
+            } else if (状态.PDF动作.出 === 'docx'){
+              // 转 Word 是「抽文字重排」, 不是结构性操作 —— 丢给 转PDF 会被当成未知操作。
+              const r = await 转PDF转Word(项, 参);
+              r.forEach(x => 状态.结果.push(x));
             } else {
               const r = await 转PDF(项, 状态.PDF动作, 参, [项]);
               r.列表.forEach(x => 状态.结果.push({ ok:true, blob:x.blob, 文件名:x.文件名, 来源:项.file.name }));
@@ -1382,6 +1475,27 @@ async function 服务转PDF出图(项, 动作, 参){
   return j.结果.map(o => o.ok
     ? { ok:true, blob: new Blob([Uint8Array.from(atob(o.数据), ch=>ch.charCodeAt(0))], {type:补MIME(o.文件名)}), 文件名:o.文件名, 宽:o.宽, 高:o.高, 来源:项.file.name }
     : { ok:false, 来源:项.file.name, 错误:o.错误 });
+}
+
+// PDF 转 Word —— 把文字抽出来重排成一份新 .docx, 不是把原版式搬过去。
+// 抽法和打包都复用「提取重写」那套(抽文本 / 行表转文本 / 造DOCX), 所以两条路的结果一致;
+// 各写一份的话, 改了这边忘了那边, 同一个 PDF 从两个入口转出来会不一样。
+// 走浏览器, 不需要本机服务 —— 公网页面上照样能用。
+async function 转PDF转Word(项, 参){
+  await PE载库();
+  // pdf.js 会接管传进去的 buffer(原 buffer 变 detached), 给它一份拷贝。
+  const 原 = new Uint8Array(await 项.file.arrayBuffer());
+  const 文档 = await pdfjsLib.getDocument({ data: 原.slice() }).promise;
+  try {
+    const 文本 = 行表转文本(await 抽文本(文档), 参.Word方式);
+    // 扫描件里一个字都抽不出来。这时候给一份空 Word 比报错更坑 —— 用户会以为转成功了。
+    if (!文本.trim())
+      throw new Error('这份 PDF 里没有能抽出来的文字（大概是扫描件）。要原样保存请用「PDF 在线编辑」，要出图请用「PDF 转 JPG」');
+    const blob = await 造DOCX(文本, 参.Word字体, 参.Word字号, 参.Word行距);
+    return [{ ok:true, blob, 文件名:项.file.name.replace(/\.pdf$/i,'') + '.docx', 来源:项.file.name }];
+  } finally {
+    try { 文档.destroy(); } catch(e){}
+  }
 }
 
 /* =========================================================================
@@ -2402,19 +2516,23 @@ document.addEventListener('keydown', (e)=>{
    ========================================================================= */
 
 /* ---- 模式切换 ----
-   两个入口各自展开自己的工作区, 另一个整体隐藏 —— 不是滚动到不同位置, 是真的不显示,
-   免得用户在「格式转换」里翻到一半撞见编辑器的东西。 */
+   每个入口各自展开自己的工作区, 其余整体隐藏 —— 不是滚动到不同位置, 是真的不显示,
+   免得用户在「格式转换」里翻到一半撞见编辑器的东西。
+   三个入口对应三种产出: 转换出「转好的文件」, 编辑出「改过的原件」, 重写出「一份新文档」。 */
 let 当前模式 = 'conv';
 function 切换模式(名){
   当前模式 = 名;
   $('wrapConv').style.display = 名 === 'conv' ? '' : 'none';
   $('wrapEdit').style.display = 名 === 'edit' ? '' : 'none';
+  $('wrapRe').style.display   = 名 === 're'   ? '' : 'none';
   $('modeConvBtn').classList.toggle('on', 名 === 'conv');
   $('modeEditBtn').classList.toggle('on', 名 === 'edit');
+  $('modeReBtn').classList.toggle('on', 名 === 're');
   window.scrollTo(0, 0);
 }
 $('modeConvBtn').onclick = ()=> 切换模式('conv');
 $('modeEditBtn').onclick = ()=> 切换模式('edit');
+$('modeReBtn').onclick   = ()=> 切换模式('re');
 
 /* ---- 编辑模式的落地页 ----
    只收一份 PDF, 收下就直接进全屏编辑器 —— 编辑是「从头改到尾」的活, 攒一批再挑动作
@@ -2445,6 +2563,331 @@ $('editPicker').onchange = (e)=>{
 $('editDrop').addEventListener('drop', e=>{
   if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) 收编辑文件(e.dataTransfer.files[0]);
 });
+
+/* =========================================================================
+   提取重写
+   -------------------------------------------------------------------------
+   跟「PDF 在线编辑」是两件事, 所以另立一个入口:
+     编辑 = 在原件上改几个字, 版式原样保留(盖住重打), 产出还是原件;
+     重写 = 把文字抽出来重新排一份新文档, 版式不复原 —— 也不假装复原。
+   后者是给「整篇要重写」「内容要搬到别处」用的。
+   ========================================================================= */
+const 重 = {
+  文件:null, 文档:null, 页数:0, 行表:null,
+  设:{ 方式:'line', 字体:'内置', 字号:12, 行距:1.6 }
+};
+
+// 能选的字体。docx 那列是写进 Word 的字体名 —— Word 认的是 Windows 字体名,
+// 所以「内置思源黑体」在 Word 里退回宋体(Word 不装思源黑体)。PDF 那边走 PE系统字体(),
+// 本机没那个字体时自动退回内置子集。
+const 重字体表 = [
+  { 值:'内置',     docx:'宋体' },
+  { 值:'宋体',     docx:'宋体' },
+  { 值:'黑体',     docx:'黑体' },
+  { 值:'楷体',     docx:'楷体' },
+  { 值:'仿宋',     docx:'仿宋' },
+  { 值:'微软雅黑', docx:'微软雅黑' }
+];
+const 重方式说明 = {
+  line:'一行对一行，表格不会散',
+  para:'把连续的行并成段落，读着顺，但表格会串'
+};
+
+function 重提示(文, 是错){
+  const el = $('reTip');
+  el.textContent = 文 || '';
+  el.className = 'tip ' + (是错 ? 'err' : 'info');
+  el.style.display = 文 ? '' : 'none';
+}
+
+async function 重打开(f){
+  if (重.文档){ try { 重.文档.destroy(); } catch(e){} 重.文档 = null; }
+  $('reWork').style.display = 'none';
+  重提示('正在读 PDF…');
+  try {
+    await PE载库();
+    // pdf.js 会把传进去的 buffer 转移走(原 buffer 变成 detached)。给它一份拷贝,
+    // 免得后面还要用原始字节时拿到一个长度 0 的空壳。
+    const 原 = new Uint8Array(await f.arrayBuffer());
+    重.文档 = await pdfjsLib.getDocument({ data: 原.slice() }).promise;
+    重.文件 = f;
+    重.页数 = 重.文档.numPages;
+    await 重抽取();
+    重提示('');
+    $('reWork').style.display = '';
+  } catch(e){
+    重提示('读不了这个 PDF：' + e.message, true);
+  }
+}
+
+// 一页一页抽文字, 聚成行, 返回 页表: [[{y,文}, …], …]。
+// 这是「提取重写」和格式转换里「PDF 转 Word」共用的唯一一份抽法 —— 两处各写一遍迟早分叉。
+async function 抽文本(文档){
+  const 页表 = [];
+  for (let i = 1; i <= 文档.numPages; i++){
+    const p = await 文档.getPage(i);
+    const tc = await p.getTextContent();
+    const 项 = [];
+    for (const it of tc.items){
+      if (!it.str || !it.str.trim()) continue;
+      const tr = it.transform || [1,0,0,1,0,0];
+      // 斜排/竖排的文字这里不碰 —— 轴对齐的「行」算不准它们, 硬拼出来是一团乱码。
+      if (Math.abs(tr[1]) > 0.02 || Math.abs(tr[2]) > 0.02) continue;
+      项.push({ 文:it.str, x:tr[4], 右:tr[4] + (it.width || 0), y:tr[5],
+                号: Math.hypot(tr[2], tr[3]) || 12 });
+    }
+    页表.push(重成行(项));
+  }
+  return 页表;
+}
+
+// 页表 -> 整篇文本。页与页之间空一行; 方式选 'para' 时把行并成段落。
+function 行表转文本(页表, 方式){
+  const 段 = [];
+  for (const 行表 of 页表){
+    if (段.length) 段.push('');                       // 页与页之间空一行
+    if (方式 === 'para') 段.push(...重拼段(行表));
+    else 段.push(...行表.map(行 => 行.文));
+  }
+  return 段.join('\n');
+}
+
+async function 重抽取(){
+  重.行表 = await 抽文本(重.文档);
+  $('reMeta').textContent = 重.页数 + ' 页 · ' +
+    重.行表.reduce((n,p)=>n+p.length, 0) + ' 行';
+  重渲染();
+}
+
+// 把一页的文字项聚成「行」。同一行的字基线基本对齐, 所以按 y 排序后, 相邻且 y 差
+// 不超过半个字高的归成一行。容差随字号走 —— 小字文档的行距也小, 用固定值会串行。
+function 重成行(项){
+  项.sort((a,b) => b.y - a.y || a.x - b.x);
+  const 行表 = [];
+  for (const t of 项){
+    const 末 = 行表[行表.length - 1];
+    if (末 && Math.abs(末.y - t.y) <= Math.max(末.号, t.号) * 0.45) 末.项.push(t);
+    else 行表.push({ y:t.y, 号:t.号, 项:[t] });
+  }
+  return 行表.map(行 => {
+    行.项.sort((a,b) => a.x - b.x);
+    let s = '', 前 = null;
+    for (const t of 行.项){
+      if (前){
+        const 隙 = t.x - 前.右;
+        // 表格里两列之间会空一大截。空得少当词间距(一个空格), 空得多当列间距(几个空格) ——
+        // 不补的话「姓名」和「日期」会粘成「姓名日期」。
+        if (隙 > 前.号 * 1.6) s += '    ';
+        else if (隙 > 前.号 * 0.25) s += ' ';
+      }
+      s += t.文; 前 = t;
+    }
+    return { y:行.y, 文:s.replace(/\s+$/,'') };
+  }).filter(行 => 行.文);
+}
+
+function 重渲染(){
+  $('reText').value = 行表转文本(重.行表 || [], 重.设.方式);
+}
+
+// 「拼成段落」是个启发式, 不保证对 —— 所以它只是个可选项, 默认仍是按行还原。
+// 判据两条: 行距明显大于本页中位行距(空行/新段), 或者上一行以句末标点收尾、
+// 下一行以序号或项目符号开头。
+function 重拼段(行表){
+  if (!行表.length) return [];
+  const 隙 = [];
+  for (let i = 1; i < 行表.length; i++) 隙.push(Math.abs(行表[i-1].y - 行表[i].y));
+  const 排 = 隙.slice().sort((a,b)=>a-b);
+  const 中位 = 排[排.length >> 1] || 12;
+  const 出 = [];
+  let 当前 = 行表[0].文;
+  for (let i = 1; i < 行表.length; i++){
+    const 上 = 行表[i-1].文, 下 = 行表[i].文;
+    const 断 = Math.abs(行表[i-1].y - 行表[i].y) > 中位 * 1.6
+            || (/[。！？；：!?;:]$/.test(上)
+                && /^\s*(\d+[、.．)）]|[-•·※]|第[一二三四五六七八九十百]+[条章节款项])/.test(下));
+    if (断){ 出.push(当前); 当前 = 下; }
+    else 当前 += 下;
+  }
+  出.push(当前);
+  return 出;
+}
+
+function 重交付(blob, 名){
+  状态.结果.push({ ok:true, blob, 文件名:名, 来源:重.文件.name });
+  渲染结果();
+  const 出 = $('reOut');
+  出.textContent = '';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 名;
+  a.textContent = '已生成 ' + 名 + '，点这里下载';
+  出.appendChild(a);
+}
+
+/* ---- 导出 Word ----
+   .docx 就是个 zip, 三个文件就够 Word 打开:
+     [Content_Types].xml  告诉 Word 这是个什么包
+     _rels/.rels          指向正文
+     word/document.xml    正文
+   jszip 本来就有(打包下载在用), 剩下的只是拼字符串, 不用再引一个 docx 库。 */
+function XML转义(s){
+  return String(s)
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')      // XML 1.0 不允许的控制字符
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+
+// 文本 -> .docx 的 blob。字体名传的是 Windows 字体名(Word 只认这个, 思源黑体那种它没有)。
+// 「提取重写」的导出和格式转换里的「PDF 转 Word」都走这里。
+async function 造DOCX(文本, 字体名, 字号, 行距){
+  const 半磅 = Math.round(字号 * 2);                   // Word 的字号单位是半磅
+  const 行   = Math.round(行距 * 240);                 // 240 = 单倍行距
+  const rPr = '<w:rPr><w:rFonts w:ascii="' + 字体名 + '" w:hAnsi="' + 字体名
+            + '" w:eastAsia="' + 字体名 + '" w:cs="' + 字体名 + '"/>'
+            + '<w:sz w:val="' + 半磅 + '"/><w:szCs w:val="' + 半磅 + '"/></w:rPr>';
+  const 间距 = '<w:spacing w:line="' + 行 + '" w:lineRule="auto"/>';
+  const 段 = 文本.split(/\r?\n/).map(t => t === ''
+    ? '<w:p><w:pPr>' + 间距 + '</w:pPr></w:p>'
+    : '<w:p><w:pPr>' + 间距 + rPr + '</w:pPr><w:r>' + rPr
+      + '<w:t xml:space="preserve">' + XML转义(t) + '</w:t></w:r></w:p>').join('');
+  const 正文 = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
+    + 段
+    // A4 = 11906×16838 缇(1/20 毫米), 页边距 2 厘米 = 1134 缇
+    + '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>'
+    + '<w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"'
+    + ' w:header="851" w:footer="992" w:gutter="0"/></w:sectPr>'
+    + '</w:body></w:document>';
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml',
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+    + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+    + '<Default Extension="xml" ContentType="application/xml"/>'
+    + '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+    + '</Types>');
+  zip.file('_rels/.rels',
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
+    + '</Relationships>');
+  zip.file('word/document.xml', 正文);
+  return await zip.generateAsync({
+    type:'blob',
+    mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  });
+}
+
+async function 重导DOCX(){
+  const 字 = 重字体表.find(x => x.值 === 重.设.字体) || 重字体表[0];
+  const blob = await 造DOCX($('reText').value, 字.docx, 重.设.字号, 重.设.行距);
+  重交付(blob, 重.文件.name.replace(/\.pdf$/i,'') + '_重写.docx');
+}
+
+/* ---- 导出 PDF ----
+   新建一份 A4 文档重排, 不是往原件上叠 —— 所以字体、字号、行距都能重设。 */
+// 按可用宽度折行。中文可以任意处断, 英文单词不能拦腰拆 —— 断点落在字母/数字上时
+// 回退到词首。量的和画的用同一份字体, 所以量出来的宽度就是画出来的宽度。
+function 重折行(段, f, 号, 宽){
+  const 出 = [];
+  let 行 = '';
+  for (const 字 of 段){
+    if (f.widthOfTextAtSize(行 + 字, 号) <= 宽){ 行 += 字; continue; }
+    const m = /[A-Za-z0-9]+$/.exec(行);
+    if (m && m.index > 0){ 出.push(行.slice(0, m.index)); 行 = 行.slice(m.index) + 字; }
+    else { 出.push(行); 行 = 字; }
+  }
+  if (行) 出.push(行);
+  return 出.length ? 出 : [''];
+}
+
+async function 重导PDF(){
+  const { PDFDocument, rgb } = PDFLib;
+  await 载脚本('libs/fontkit.umd.min.js');
+  if (!window.fontkit) throw new Error('fontkit 没加载成功');
+  let 字体 = await PE载字体();                    // 内置子集, 一定拿得到
+  if (重.设.字体 !== '内置'){
+    const 系 = await PE系统字体(重.设.字体);      // 本机没有就退回内置, 不报错
+    if (系) 字体 = 系;
+  }
+  const doc = await PDFDocument.create();
+  doc.registerFontkit(window.fontkit);
+  const f = await doc.embedFont(字体.字节, { subset: true });
+  const 宽A4 = 595.28, 高A4 = 841.89;             // A4 点(pt)
+  const 边距 = 56.7;                              // 2 厘米
+  const 可用宽 = 宽A4 - 边距 * 2;
+  const 号 = 重.设.字号, 行高 = 号 * 重.设.行距;
+  let pg = doc.addPage([宽A4, 高A4]);
+  let y = 高A4 - 边距 - 号;                       // drawText 的 y 是基线
+  for (const 段 of $('reText').value.split(/\r?\n/)){
+    if (段 === ''){
+      y -= 行高;
+      if (y < 边距){ pg = doc.addPage([宽A4, 高A4]); y = 高A4 - 边距 - 号; }
+      continue;
+    }
+    for (const 行 of 重折行(段, f, 号, 可用宽)){
+      if (y < 边距){ pg = doc.addPage([宽A4, 高A4]); y = 高A4 - 边距 - 号; }
+      pg.drawText(行, { x:边距, y, size:号, font:f, color:rgb(0,0,0) });
+      y -= 行高;
+    }
+  }
+  const b = await doc.save();
+  重交付(new Blob([b], { type:'application/pdf' }),
+         重.文件.name.replace(/\.pdf$/i,'') + '_重写.pdf');
+}
+
+/* ---- 提取重写的界面绑定 ---- */
+function 收重文件(f){
+  if (!f) return;
+  if (!是PDF(f)){
+    重提示('「' + f.name + '」不是 PDF。要转图片或表格，请用「格式转换」。', true);
+    return;
+  }
+  重打开(f);
+}
+$('reDrop').onclick = ()=> $('rePicker').click();
+$('rePicker').onchange = (e)=>{
+  const f = e.target.files && e.target.files[0];
+  e.target.value = '';
+  收重文件(f);
+};
+['dragenter','dragover'].forEach(ev => $('reDrop').addEventListener(ev, e=>{ e.preventDefault(); $('reDrop').classList.add('over'); }));
+['dragleave','drop'].forEach(ev => $('reDrop').addEventListener(ev, e=>{ e.preventDefault(); $('reDrop').classList.remove('over'); }));
+$('reDrop').addEventListener('drop', e=>{
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) 收重文件(e.dataTransfer.files[0]);
+});
+
+// 两个字体下拉共用一份表: 「提取重写」的导出面板, 和格式转换里「PDF 转 Word」的参数行。
+// 但列出来的名字不一样 —— 重写那边可以选「内置思源黑体」(导出 PDF 用得上), 而 Word 只认
+// Windows 字体名, 选了思源黑体也只会退回宋体, 所以 Word 那个下拉直接按 Word 实际会用的名字列。
+$('reFont').innerHTML = 重字体表
+  .map(x => '<option value="' + x.值 + '">' + (x.值 === '内置' ? '内置思源黑体' : x.值) + '</option>')
+  .join('');
+$('pdfWordFont').innerHTML = [...new Set(重字体表.map(x => x.docx))]
+  .map(n => '<option value="' + n + '">' + n + '</option>').join('');
+$('reModeHint').textContent = 重方式说明.line;
+$('reMode').onclick = (e)=>{
+  const b = e.target.closest('button'); if (!b) return;
+  [...$('reMode').children].forEach(x => x.classList.toggle('on', x === b));
+  重.设.方式 = b.dataset.m;
+  $('reModeHint').textContent = 重方式说明[b.dataset.m] || '';
+  重渲染();
+};
+$('reFont').onchange = ()=> 重.设.字体 = $('reFont').value;
+$('reSize').onchange = ()=> 重.设.字号 = Math.max(6, Math.min(36, parseFloat($('reSize').value) || 12));
+$('reLH').onchange   = ()=> 重.设.行距 = Math.max(1, Math.min(3,  parseFloat($('reLH').value)   || 1.6));
+
+function 重导出(做){
+  const 出 = $('reOut');
+  出.textContent = '正在生成…';
+  $('reDocx').disabled = true; $('rePdf').disabled = true;
+  Promise.resolve().then(做)
+    .catch(e => { 出.textContent = '导出失败：' + e.message; })
+    .then(()=>{ $('reDocx').disabled = false; $('rePdf').disabled = false; });
+}
+$('reDocx').onclick = ()=> 重导出(()=> 重导DOCX());
+$('rePdf').onclick  = ()=> 重导出(()=> 重导PDF());
 
 $('drop').onclick = ()=> $('picker').click();
 $('picker').onchange = (e)=>{ 加文件(e.target.files); e.target.value=''; };
