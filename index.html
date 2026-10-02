@@ -43,6 +43,24 @@ header{background:var(--card);border-bottom:1px solid var(--line);margin-bottom:
 .badge.busy .dot{background:var(--ac);animation:svcPulse .9s ease-in-out infinite}
 @keyframes svcPulse{0%,100%{opacity:1}50%{opacity:.2}}
 
+/* ---- 模式切换 ----
+   转换和编辑是两回事: 转换是「挑个动作, 批量跑一遍」, 编辑是「打开一份, 慢慢改」。
+   混在一页里会让「开始转换」这个按钮的语义变模糊, 也让人找不到编辑在哪。所以做成
+   两个并列的入口, 点哪个才展开哪个的工作区。 */
+.modes{max-width:1080px;margin:0 auto;padding:0 20px 14px;display:flex;gap:8px;flex-wrap:wrap}
+.mode{font-family:inherit;font-size:14px;font-weight:600;color:var(--tx2);background:var(--card);
+  border:1px solid var(--line);border-radius:9px;padding:9px 20px;cursor:pointer;
+  transition:background .12s,border-color .12s,color .12s}
+.mode:hover{border-color:var(--ac-line);color:var(--tx)}
+.mode.on,.mode.on:hover{background:var(--ac);border-color:var(--ac);color:#fff}
+.mode:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+
+/* ---- 编辑模式的落地页 ---- */
+.pe-cap{display:grid;grid-template-columns:repeat(auto-fit,minmax(228px,1fr));gap:10px}
+.pe-cap div{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;
+  font-size:13px;color:var(--tx2);line-height:1.55}
+.pe-cap b{display:block;color:var(--tx);font-size:13.5px;margin-bottom:3px}
+
 /* ---- 拖拽区 ---- */
 .drop{
   background:var(--card);border:1.5px dashed var(--line);border-radius:var(--r);
@@ -87,6 +105,10 @@ header{background:var(--card);border-bottom:1px solid var(--line);margin-bottom:
 .frow .rm{border:0;background:none;color:var(--tx3);cursor:pointer;font-size:17px;line-height:1;
   padding:3px 6px;border-radius:5px;flex:none}
 .frow .rm:hover{background:var(--err-bg);color:var(--err)}
+/* PDF 行上的「编辑」入口。用蓝色而不是 × 那种危险色 —— 它是个入口, 不是删除。 */
+.frow .ed{font-family:inherit;font-size:12px;color:var(--ac);background:var(--ac-bg);
+  border:1px solid var(--ac-line);border-radius:6px;padding:3px 10px;cursor:pointer;flex:none}
+.frow .ed:hover{background:var(--ac);color:#fff;border-color:var(--ac)}
 .frow.bad{background:#fffafa}
 .frow .st{font-size:11.5px;flex:none;padding:2px 8px;border-radius:99px}
 .st.wait{background:var(--bg);color:var(--tx3)}
@@ -135,6 +157,57 @@ header{background:var(--card);border-bottom:1px solid var(--line);margin-bottom:
 .dl a{font-size:12px;color:var(--ac);text-decoration:none;padding:3px 9px;border:1px solid var(--ac-line);
   border-radius:6px;background:var(--ac-bg);white-space:nowrap}
 .dl a:hover{background:var(--ac);color:#fff;border-color:var(--ac)}
+
+/* ---- PDF 编辑器（全屏覆盖层） ----
+   全站第一处 position:fixed 的东西。编辑器要盖住整页, 不能挤在 .wrap 里,
+   所以它挂在 body 下、.wrap 之外。 */
+.pe{position:fixed;inset:0;z-index:100;background:var(--bg);display:none;flex-direction:column}
+.pe.show{display:flex}
+.pe-bar{background:var(--card);border-bottom:1px solid var(--line);display:flex;align-items:center;
+  gap:6px;padding:7px 12px;flex-wrap:wrap;flex:none}
+.pe-name{font-size:13px;font-weight:600;max-width:190px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;flex:none}
+.pe-tools{display:flex;gap:4px;flex-wrap:wrap}
+.pe-t{font:inherit;font-size:12.5px;padding:5px 10px;border:1px solid var(--line);background:#fff;
+  color:var(--tx2);border-radius:7px;cursor:pointer;white-space:nowrap;transition:.12s}
+.pe-t:hover:not(:disabled){border-color:var(--ac-line);color:var(--tx)}
+.pe-t.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.pe-t:disabled{opacity:.4;cursor:not-allowed}
+.pe-sp{flex:1;min-width:8px}
+.pe-main{flex:1;display:flex;min-height:0}
+.pe-side{width:218px;flex:none;background:var(--card);border-right:1px solid var(--line);
+  padding:12px 13px;overflow:auto}
+.pe-side h4{margin:0 0 5px;font-size:13px;font-weight:600}
+.pe-side p{margin:0 0 12px;font-size:12px;color:var(--tx3);line-height:1.65}
+.pe-side .row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.pe-side label{font-size:12.5px;color:var(--tx2);min-width:38px;flex:none}
+.pe-side input[type=number],.pe-side select,.pe-side input[type=text]{font:inherit;font-size:12.5px;
+  padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--tx);
+  min-width:0;flex:1}
+.pe-side input[type=color]{width:36px;height:27px;padding:1px;border:1px solid var(--line);
+  border-radius:6px;background:#fff;flex:none}
+.pe-side input[type=range]{flex:1;accent-color:var(--ac);min-width:0}
+.pe-side .val{font-size:12px;color:var(--tx2);min-width:26px;font-variant-numeric:tabular-nums}
+.pe-stage{flex:1;overflow:auto;padding:20px;display:flex;justify-content:center;
+  align-items:flex-start;background:#e9ecf1}
+.pe-pg{position:relative;box-shadow:0 2px 14px rgba(20,30,50,.2);background:#fff;flex:none;line-height:0}
+.pe-pg canvas{display:block}
+.pe-pg canvas.dv{position:absolute;left:0;top:0;cursor:crosshair}
+.pe-foot{background:var(--card);border-top:1px solid var(--line);padding:6px 12px;font-size:12px;
+  color:var(--tx3);display:flex;align-items:center;gap:10px;flex:none;flex-wrap:wrap}
+.pe-zoom{font-size:12px;color:var(--tx2);font-variant-numeric:tabular-nums;min-width:42px;text-align:center}
+.pe-load{position:absolute;inset:0;background:rgba(255,255,255,.88);display:flex;align-items:center;
+  justify-content:center;font-size:13px;color:var(--tx2);z-index:3;text-align:center;padding:20px;line-height:1.7}
+/* 浮在页面上的小输入框（加文字 / 改字）。它要贴着被编辑的位置出现,
+   所以放在 .pe-pg 里用绝对定位, 而不是弹到屏幕中间。 */
+.pe-in{position:absolute;z-index:4;background:#fff;border:1px solid var(--ac);border-radius:8px;
+  box-shadow:0 4px 18px rgba(20,30,50,.24);padding:8px;display:flex;flex-direction:column;gap:6px;
+  width:250px;line-height:1.5;text-align:left}
+.pe-in textarea{font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);
+  border-radius:6px;resize:vertical;min-height:54px;width:100%;box-sizing:border-box;line-height:1.5}
+.pe-in .row{display:flex;gap:6px;align-items:center;justify-content:flex-end}
+.pe-in .note{font-size:11.5px;color:var(--tx3);line-height:1.5;flex:1}
+.pe-in .warn{color:var(--warn)}
 </style>
 </head>
 <body>
@@ -144,9 +217,13 @@ header{background:var(--card);border-bottom:1px solid var(--line);margin-bottom:
     <div class="logo">文件格式转换<span>文件不出本机</span></div>
     <div class="badge" id="svcBadge"><span class="dot"></span><span id="svcText">正在检测本机服务…</span></div>
   </div>
+  <div class="modes">
+    <button class="mode on" id="modeConvBtn">格式转换</button>
+    <button class="mode" id="modeEditBtn">PDF 在线编辑</button>
+  </div>
 </header>
 
-<div class="wrap">
+<div class="wrap" id="wrapConv">
 
   <div class="drop" id="drop">
     <b>把文件拖到这里，或 <span class="pick">点击选择</span></b>
@@ -285,6 +362,80 @@ header{background:var(--card);border-bottom:1px solid var(--line);margin-bottom:
     </div>
   </section>
 
+</div>
+
+<!-- 编辑模式的落地页。编辑是整份文件从头改到尾的事, 不像转换那样能先攒一堆文件再挑
+     动作 —— 所以这里不要文件列表, 收一份就进全屏编辑器。 -->
+<div class="wrap" id="wrapEdit" style="display:none">
+
+  <div class="drop" id="editDrop">
+    <b>把 PDF 拖到这里，或 <span class="pick">点击选择</span></b>
+    <small>在浏览器里直接改，文件不离开这台机器</small>
+    <input type="file" id="editPicker" accept="application/pdf,.pdf" hidden>
+  </div>
+
+  <div id="editTip" class="note" style="display:none;margin-top:12px;color:var(--err)"></div>
+
+  <section class="sec">
+    <div class="sec-h"><h2>能改什么</h2></div>
+    <div class="pe-cap">
+      <div><b>加内容</b>文字、图片、矩形、椭圆、线段</div>
+      <div><b>改原文</b>点中原文里的字，直接改字、改字号、改颜色</div>
+      <div><b>标注</b>高亮、自由画笔、遮盖块</div>
+      <div><b>撤销重做</b>Ctrl+Z / Ctrl+Y，随时退回去</div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><h2>两点说明</h2></div>
+    <div class="note" style="line-height:1.75">
+      <b>改原文是「盖住重打」，不是改内容流。</b>PDF 里没有「一行字」这种东西，只有一个个
+      被摆到坐标上的字形。所以改字的做法是用原文的底色盖住原字，再在同样的基线上按同样的
+      字号重打一遍 —— 主流的网页 PDF 编辑器都是这个做法。两个后果先说清楚：
+      <b>一是</b>放大细看笔画会与原字有细微差别，打印和阅读不受影响；
+      <b>二是</b>原字其实还在文件里，只是被盖住了，用搜索或复制文字时会新旧都能搜到。
+      要彻底去掉得走 OCR 重排，本站不做。<br>
+      另外，新写的字比原来长时会盖不住后面的内容 —— 改完顺手看一眼，必要时用「遮盖块」补一下。<br>
+      <b>中文尽量用本机字体。</b>点中原文时会读出它用的字体（宋体/黑体/楷体/仿宋/微软雅黑…），
+      从本机系统字体里取一份来重打，接得上原样。本机没有那个字体时退回内置思源黑体。
+      第一次会问你要不要授权读取本机字体，拒绝也能用，只是字体匹配不到。
+    </div>
+  </section>
+
+</div>
+
+<!-- PDF 编辑器。全屏覆盖层, 挂在 .wrap 外面(要盖住整页), 只在点「编辑」时显示。
+     工具栏和侧栏都由 JS 按当前工具渲染 —— 工具多, 写死在 HTML 里会有大半是隐藏的。 -->
+<div class="pe" id="pe">
+  <div class="pe-bar">
+    <span class="pe-name" id="peName"></span>
+    <div class="pe-tools" id="peTools"></div>
+    <span class="pe-sp"></span>
+    <button class="pe-t" id="peUndo" title="撤销（Ctrl+Z）">撤销</button>
+    <button class="pe-t" id="peRedo" title="重做（Ctrl+Y）">重做</button>
+    <button class="pe-t" id="peZoomOut" title="缩小">−</button>
+    <span class="pe-zoom" id="peZoomV">100%</span>
+    <button class="pe-t" id="peZoomIn" title="放大">+</button>
+    <button class="pe-t" id="peFit">适应宽度</button>
+    <button class="btn pri" id="peSave" style="padding:6px 16px;font-size:13px">保存</button>
+    <button class="pe-t" id="peClose">关闭</button>
+  </div>
+  <div class="pe-main">
+    <div class="pe-side" id="peSide"></div>
+    <div class="pe-stage" id="peStage">
+      <div class="pe-pg" id="pePg">
+        <canvas id="peBase"></canvas>
+        <canvas class="dv" id="peDraw"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="pe-foot">
+    <button class="pe-t" id="pePrev">← 上一页</button>
+    <span id="pePageV">1 / 1</span>
+    <button class="pe-t" id="peNext">下一页 →</button>
+    <span class="pe-sp"></span>
+    <span id="peHint"></span>
+  </div>
 </div>
 
 <script src="libs/xlsx.full.min.js"></script>
@@ -1022,6 +1173,16 @@ function 渲染文件(){
       + (问 ? ' · ' + 问 : '') + '</small></div>'
       + '<span class="st ' + (f.状态==='ok'?'ok':f.状态==='no'?'no':f.状态==='run'?'run':'wait') + '">'
       + (f.状态==='ok'?'已转换':f.状态==='no'?'失败':f.状态==='run'?'转换中':'待转换') + '</span>';
+    // PDF 行多一个「编辑」入口。不做成 PDF 动作表里的一项 —— 动作表是
+    // 「选中一个动作, 再点开始转换」的批量模型; 而编辑是一块独立的全屏工作区,
+    // 混进去会让「开始转换」这个按钮的语义变模糊。
+    if (f.类型 === 'PDF' && !问){
+      const ed = document.createElement('button');
+      ed.className = 'ed'; ed.textContent = '编辑';
+      ed.title = '在浏览器里改这份 PDF：加文字、改原文的字、画框线、高亮、遮盖';
+      ed.onclick = ()=> PE打开(f);
+      row.appendChild(ed);
+    }
     const rm = document.createElement('button');
     rm.className = 'rm'; rm.textContent = '×'; rm.title = '移除';
     rm.onclick = ()=>{ 状态.文件.splice(i,1); 渲染文件(); 渲染动作(); };
@@ -1224,8 +1385,1067 @@ async function 服务转PDF出图(项, 动作, 参){
 }
 
 /* =========================================================================
+   PDF 在线编辑器
+   ---------------------------------------------------------------------
+   PDF 不是文档格式。它里面没有「段落」和「行」, 只有一个个被摆到坐标上的字形。
+   所以「改原文的字」这件事, 主流网页编辑器(Smallpdf / Sejda / 福昕)走的路子都是
+   同一套: 用背景色把原来那几个字形盖住, 再在同样的位置用同样的字号重新打一遍。
+   这个编辑器也这么做 —— 不假装能改内容流。
+
+   坐标一律存 PDF 用户空间(MediaBox 左下为原点、未计 /Rotate 的那套坐标),
+   显示时才换算到屏幕。这样缩放、翻页、转屏都不会让已放好的内容跑位。
+   换算只走 pdf.js 视口的 convertToViewportPoint / convertToPdfPoint —— 它把
+   /Rotate 和 MediaBox 原点偏移都算进去了, 自己写三角函数必错。
+   ========================================================================= */
+const 编 = {
+  开:false, 项:null, 原:null, 文档:null, 页数:0, 页:1,
+  缩放:1, 视口:null, pdf页:null, 渲染任务:null,
+  标注:[], 图库:{}, 文字:{},
+  工具:'select', 选中:null, 拖:null,
+  历史:[], 未来:[], 脏:false,
+  设:{ 字号:16, 颜色:'#c0392b', 填充:'#ffffff', 线宽:1.5, 高亮:'#ffe066' },
+  字体:null, 系统字体:{}, 库:null, 文档字体:null
+};
+
+function b64转字节(b64){
+  const bin = atob(b64), u = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return u;
+}
+// 入参是 0-255 的分量(直方图统计出来的原始像素值), 不是 0-1 —— 别在这里再乘一次 255,
+// 否则 255 会变成 65025, 十六进制串就成了 #fe01fe01fe01 这种畸形值。
+function PE十六(c){
+  return '#' + [c.r, c.g, c.b].map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2,'0')).join('');
+}
+function PE色(hex){
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || '#000000'));
+  const { rgb } = PDFLib;
+  return m ? rgb(parseInt(m[1],16)/255, parseInt(m[2],16)/255, parseInt(m[3],16)/255) : rgb(0,0,0);
+}
+function 载脚本(src){
+  return new Promise((res, rej)=>{
+    if ([...document.scripts].some(s => (s.getAttribute('src')||'').endsWith(src))) return res();
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = ()=>res();
+    s.onerror = ()=>rej(new Error('加载 ' + src + ' 失败，文件可能缺失或被损坏'));
+    document.head.appendChild(s);
+  });
+}
+
+/* ---- 懒加载 ----
+   pdf.js 1.4 MB、fontkit 0.75 MB、中文字体 2.9 MB —— 这些只有开编辑器才用得上。
+   转个图片也要背这 5 MB 说不过去, 所以都等真正需要时再拉。 */
+function PE载库(){
+  if (编.库) return 编.库;
+  编.库 = (async ()=>{
+    await 载脚本('libs/pdf.min.js');
+    // worker 的源码也用 script 标签载进主线程。file:// 下 Chrome 拦 fetch、也常常
+    // 拦 new Worker, 那时 pdf.js 会退化成「在主线程上跑」, 前提正是这份源码已经在
+    // 页面里(它会挂到 window.pdfjsWorker)。多载一份是保底, 换掉一整类"某些机器上打不开"。
+    await 载脚本('libs/pdf.worker.min.js');
+    if (!window.pdfjsLib) throw new Error('pdf.js 没加载成功');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
+  })();
+  return 编.库;
+}
+function PE载字体(){
+  if (编.字体) return Promise.resolve(编.字体);
+  return (async ()=>{
+    await 载脚本('libs/fontkit.umd.min.js');
+    await 载脚本('libs/cjk-subset.js');
+    if (!window.fontkit) throw new Error('fontkit 没加载成功');
+    if (!window.__CJK字体B64) throw new Error('中文字体没加载成功（libs/cjk-subset.js）');
+    const 字节 = b64转字节(window.__CJK字体B64);
+    // 同时注册成 CSS 字体, 好让画布上的预览和存进 PDF 的样子一致 ——
+    // 不然屏幕上用雅黑、存出来是思源黑体, 用户按预览调的位置就不准了。
+    if (!document.fonts.check('12px "PE内置中文"')){
+      const ff = new FontFace('PE内置中文', 字节.buffer);
+      await ff.load(); document.fonts.add(ff);
+    }
+    编.字体 = { 键:'内置', 族:'PE内置中文', 名:'内置思源黑体', 字节 };
+    return 编.字体;
+  })();
+}
+/* ---- 认出原文用的什么字体 ----
+   PDF 里字体名有好几种写法, 先洗成「裸名」再去本机字体表里找:
+     /ABCDEF+SimSun   子集前缀 —— 六个大写字母加号, 是子集嵌入时的惯例
+     /SimSun-7572     pdf-lib 自己加的消歧数字后缀
+     /SimSun,Bold     ​,Bold 这类样式后缀
+   还有一批老文档写的是中文名或 _GB2312 后缀(公文模板尤其多), 别名表兜住它们。 */
+const PE字体别名 = {
+  '宋体':'SimSun', '新宋体':'NSimSun', '黑体':'SimHei', '楷体':'KaiTi', '仿宋':'FangSong',
+  '微软雅黑':'MicrosoftYaHei', '微软正黑体':'MicrosoftJhengHei', '等线':'DengXian',
+  '华文楷体':'STKaiti', '华文仿宋':'STFangsong', '华文中宋':'STZhongsong',
+  'kaitigb2312':'KaiTi', 'fangsonggb2312':'FangSong', 'simsun':'SimSun', 'simhei':'SimHei',
+  'kaiti':'KaiTi', 'fangsong':'FangSong', 'nsimsun':'NSimSun', 'dengxian':'DengXian',
+  'msyh':'MicrosoftYaHei', 'microsoftyahei':'MicrosoftYaHei', 'stkaiti':'STKaiti',
+  'stfangsong':'STFangsong', 'songti':'SimSun', 'heiti':'SimHei'
+};
+function PE净字体名(s){
+  return String(s || '')
+    .replace(/^\//, '')
+    .replace(/^[A-Z]{6}\+/, '')
+    .replace(/,.*$/, '')
+    .replace(/-(Bold|Italic|BoldItalic|Regular|Light|Medium|Black|MT|PSMT)$/i, '')
+    .replace(/-\d+$/, '')
+    .trim();
+}
+async function PE装字体(f){
+  const 原 = new Uint8Array(await (await f.blob()).arrayBuffer());
+  const 字节 = TTC取字面(原, f.postscriptName);
+  const 键 = 'PE系统_' + String(f.postscriptName).replace(/[^\w]/g, '');
+  if (!document.fonts.check('12px "' + 键 + '"')){
+    const ff = new FontFace(键, 字节.buffer);
+    await ff.load(); document.fonts.add(ff);
+  }
+  return { 键, 族:键, 名:f.family + (f.style && f.style !== 'Regular' ? ' ' + f.style : ''), 字节 };
+}
+
+// 本机版能直接读系统字体(file:// 也是安全上下文, queryLocalFonts 可用)。
+// 改原文的字时这一步很关键: 原文档用宋体, 拿黑体去顶, 一眼就看得出补过。
+async function PE系统字体(原名){
+  const 净 = PE净字体名(原名);
+  if (!window.queryLocalFonts || !净) return null;
+  if (编.系统字体[净] !== undefined) return 编.系统字体[净];
+  let 果 = null;
+  try {
+    const 全部 = await window.queryLocalFonts();
+    const 低 = 净.toLowerCase();
+    const 紧 = 低.replace(/[^a-z0-9一-鿿]/g, '');
+    const 想 = String(PE字体别名[紧] || 净).toLowerCase();
+    const 找 = p => 全部.find(p);
+    // 精确匹配优先于前缀匹配 —— 否则 "SimSun" 会先撞上 "SimSun-ExtB"(扩展区字体,
+    // 常用字全没有), 打出来的字一半是空白。
+    const 中 = 找(f => String(f.postscriptName).toLowerCase() === 想)
+            || 找(f => String(f.family).toLowerCase() === 想)
+            || 找(f => String(f.fullName).toLowerCase() === 想)
+            || 找(f => String(f.postscriptName).toLowerCase() === 低)
+            || 找(f => String(f.family).toLowerCase() === 低)
+            || 找(f => String(f.postscriptName).toLowerCase() === 想 + 'regular')
+            || 找(f => String(f.postscriptName).toLowerCase().startsWith(想))
+            || 找(f => String(f.family).toLowerCase().startsWith(想));
+    if (中) 果 = await PE装字体(中);
+  } catch(e){ 果 = null; }     // 用户拒绝授权、或浏览器不支持 —— 退回内置字体, 不打扰
+  编.系统字体[净] = 果;
+  return 果;
+}
+
+// 文档里到底有哪几个字体。从 pdf-lib 的对象模型上读 —— pdf.js 那边报的
+// fontFamily 永远是 "monospace" 这种兜底值, 拿不到真名。
+async function PE文档字体(){
+  if (编.文档字体) return 编.文档字体;
+  const 出 = [], 见 = new Set();
+  try {
+    const { PDFDocument, PDFName, PDFDict } = PDFLib;
+    const doc = await PDFDocument.load(编.原, { ignoreEncryption: true });
+    for (const pg of doc.getPages()){
+      const res = pg.node.Resources();
+      const fd = res && res.lookup(PDFName.of('Font'), PDFDict);
+      if (!fd) continue;
+      for (const k of fd.keys()){
+        const d = fd.lookup(k, PDFDict);
+        const bf = d && d.get(PDFName.of('BaseFont'));
+        const 名 = bf ? String(bf.asString()).replace(/^\//, '') : '';
+        if (!名 || 见.has(名)) continue;
+        见.add(名);
+        出.push({ 资源键: k.asString(), 名 });
+      }
+    }
+  } catch(e){ /* 读不出来不算错, 退回内置字体 */ }
+  编.文档字体 = 出;
+  return 出;
+}
+
+/* ---- TrueType 集合(.ttc)取字面 ----
+   宋体(simsun.ttc)和微软雅黑(msyh.ttc)都是字体集合, 恰好是中文文档里最常见的两个。
+   fontkit 把 .ttc 解析成 TrueTypeCollection, 上面没有 createSubset, pdf-lib 一嵌就报
+   "o.font.createSubset is not a function"。所以必须先把要用的那个字面抽成独立的 .ttf。
+
+   TTC 的布局: 文件头列出各字面的「表目录」偏移, 每个表目录就是一份标准的 sfnt 头 +
+   表记录, 而表记录里的偏移是【相对整个文件】的。抽取 = 抄一份表目录, 把用到的表数据
+   依次排到新文件里, 再把记录里的偏移改成新位置。集合内共享的表会被复制一份, 文件因此
+   比原来单字面大一点, 但换来的是结构完全合法。 */
+function TTC取字面(字节, 想要的字面名){
+  const dv = new DataView(字节.buffer, 字节.byteOffset, 字节.byteLength);
+  if (dv.byteLength < 12 || dv.getUint32(0) !== 0x74746366) return 字节;   // 不是 'ttcf', 原样返回
+  const 面数 = dv.getUint32(8);
+  if (!面数) return 字节;
+  // 集合里可能有多个字面(如 宋体/新宋体), 按 PostScript 名挑对应的那个
+  let 序号 = 0;
+  try {
+    const ft = (typeof fontkit !== 'undefined') ? fontkit.create(字节) : null;
+    if (ft && ft.fonts){
+      const i = ft.fonts.findIndex(f => String(f.postscriptName || '').toLowerCase()
+        === String(想要的字面名 || '').toLowerCase());
+      if (i >= 0) 序号 = i;
+    }
+  } catch(e){ 序号 = 0; }
+  if (序号 >= 面数) 序号 = 0;
+
+  const 面偏移 = dv.getUint32(12 + 序号*4);
+  const 版本 = dv.getUint32(面偏移);
+  const 表数 = dv.getUint16(面偏移 + 4);
+  const 记录 = [];
+  for (let i = 0; i < 表数; i++){
+    const p = 面偏移 + 12 + i*16;
+    记录.push({ tag: dv.getUint32(p), sum: dv.getUint32(p+4),
+                off: dv.getUint32(p+8), len: dv.getUint32(p+12) });
+  }
+  let 游标 = 12 + 表数*16;
+  const 布局 = 记录.map(r => { const o = 游标; 游标 += (r.len + 3) & ~3; return o; });
+  const 出 = new Uint8Array(游标);
+  const w = new DataView(出.buffer);
+  w.setUint32(0, 版本);
+  w.setUint16(4, 表数);
+  // 二分查找参数, 规范要求按「不超过表数的最大 2 的幂」算
+  let 幂 = 1, 指 = 0;
+  while (幂 * 2 <= 表数){ 幂 *= 2; 指++; }
+  w.setUint16(6, 幂 * 16);
+  w.setUint16(8, 指);
+  w.setUint16(10, 表数*16 - 幂*16);
+  记录.forEach((r, i)=>{
+    const p = 12 + i*16;
+    w.setUint32(p, r.tag); w.setUint32(p+4, r.sum);
+    w.setUint32(p+8, 布局[i]); w.setUint32(p+12, r.len);
+    出.set(字节.subarray(r.off, r.off + r.len), 布局[i]);
+  });
+  // head 表里的 checkSumAdjustment 是【整个文件】的校验和。抽出来之后必须重算,
+  // 否则严格的解析器会当成文件损坏。规范给的算法: 先置 0 求和, 再用 0xB1B0AFBA 减。
+  const hi = 记录.findIndex(r => r.tag === 0x68656164);      // 'head'
+  if (hi >= 0){
+    const 位置 = 布局[hi] + 8;
+    w.setUint32(位置, 0);
+    let 和 = 0;
+    for (let i = 0; i < 出.length; i += 4){
+      和 = (和 + (出[i]||0)*16777216 + (出[i+1]||0)*65536 + (出[i+2]||0)*256 + (出[i+3]||0)) % 4294967296;
+    }
+    w.setUint32(位置, (0xB1B0AFBA - 和 + 4294967296) % 4294967296);
+  }
+  return 出;
+}
+
+/* ---- 打开 / 关闭 ---- */
+async function PE打开(项){
+  if (编.开) return;
+  编.项 = 项; 编.开 = true; 编.页 = 1; 编.缩放 = 1;
+  编.标注 = []; 编.图库 = {}; 编.文字 = {}; 编.历史 = []; 编.未来 = [];
+  编.选中 = null; 编.拖 = null; 编.脏 = false; 编.原 = null;
+  // 文档字体表要跟着换。系统字体表不用 —— 那是本机字体, 换哪份文档都一样。
+  编.文档字体 = null;
+  $('pe').classList.add('show');
+  $('peName').textContent = 项.file.name;
+  $('pePg').innerHTML = '<canvas id="peBase"></canvas><canvas class="dv" id="peDraw"></canvas>'
+    + '<div class="pe-load" id="peLoad">正在准备编辑器…</div>';
+  // 指针事件必须绑在【新】canvas 上 —— 上面这行把静态标记里的那两个换掉了,
+  // 绑在旧的上面等于没绑(元素已经不是页面上那一个了)。
+  PE绑指针();
+  PE渲染工具条(); PE渲染侧栏(); PE更新页脚();
+  try {
+    await PE载库();
+    PE提示('正在读取 PDF…');
+    编.原 = new Uint8Array(await 项.file.arrayBuffer());
+    // pdf.js 会「接管」传进去的 buffer, 所以给它一份拷贝, 原件留着最后交给 pdf-lib
+    编.文档 = await pdfjsLib.getDocument({ data: 编.原.slice(0) }).promise;
+    编.页数 = 编.文档.numPages;
+    编.页 = 1;
+    await PE渲染页();
+  } catch(e){
+    PE提示('打不开这个 PDF：' + e.message, true);
+  }
+}
+function PE提示(文, 是错){
+  const el = $('peLoad');
+  if (!el) return;
+  el.style.display = 文 ? '' : 'none';
+  el.textContent = 文 || '';
+  el.style.color = 是错 ? 'var(--err)' : 'var(--tx2)';
+}
+function PE关闭(){
+  if (编.脏 && !confirm('有还没保存的改动，确定关闭吗？')) return;
+  编.开 = false; 编.文档 = null; 编.原 = null; 编.渲染任务 = null;
+  $('pe').classList.remove('show');
+  $('pePg').innerHTML = '';
+}
+
+/* ---- 渲染 ---- */
+async function PE渲染页(){
+  if (!编.文档) return;
+  PE提示('正在渲染第 ' + 编.页 + ' 页…');
+  编.pdf页 = await 编.文档.getPage(编.页);
+  编.视口 = 编.pdf页.getViewport({ scale: 编.缩放 });
+  // 页脚跟着渲染走。放这里是因为页码/缩放/总页数三者都在这一处才全部就位 ——
+  // 早先只在打开时调过一次, 那会儿 编.页数 还是 0, 于是永远显示「1 / 1」。
+  PE更新页脚();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const base = $('peBase'), draw = $('peDraw');
+  if (!base || !draw) return;
+  const W = Math.round(编.视口.width), H = Math.round(编.视口.height);
+  for (const c of [base, draw]){
+    c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
+    c.style.width = W + 'px'; c.style.height = H + 'px';
+  }
+  if (编.渲染任务){ try { 编.渲染任务.cancel(); } catch(e){} 编.渲染任务 = null; }
+  const ctx = base.getContext('2d');
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, base.width, base.height);
+  // 画布按 dpr 放大画、再缩回 CSS 尺寸显示 —— 高分屏上才不糊
+  const vp = 编.pdf页.getViewport({ scale: 编.缩放 * dpr });
+  const 任务 = 编.pdf页.render({ canvasContext: ctx, viewport: vp });
+  编.渲染任务 = 任务;
+  try { await 任务.promise; }
+  catch(e){
+    if (e && e.name === 'RenderingCancelledException') return;
+    PE提示('这一页渲染失败：' + e.message, true); return;
+  }
+  编.渲染任务 = null;
+  PE提示('');
+  PE重画();
+}
+function PE重画(){
+  const cv = $('peDraw'); if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  const 本页 = 编.标注.filter(a => a.页 === 编.页 - 1);
+  本页.forEach(a => PE画一个(ctx, a));
+  if (编.拖 && 编.拖.预览) PE画一个(ctx, 编.拖.预览);
+  if (编.选中){
+    const b = PE外框(编.选中);
+    if (b){
+      ctx.save();
+      ctx.strokeStyle = '#2f6feb'; ctx.lineWidth = 1; ctx.setLineDash([4,3]);
+      ctx.strokeRect(b.x - 3, b.y - 3, b.w + 6, b.h + 6);
+      ctx.restore();
+    }
+  }
+}
+
+/* ---- 坐标 ----
+   一律经 pdf.js 视口换算。自己拿 /Rotate 和 MediaBox 算三角函数必错 ——
+   扫描件大多带 /Rotate 90, 而裁切过的 PDF MediaBox 原点常不是 (0,0)。 */
+function PE转屏(x, y){
+  const [a, b] = 编.视口.convertToViewportPoint(x, y);
+  return { x:a, y:b };
+}
+function PE转PDF(x, y){
+  const [a, b] = 编.视口.convertToPdfPoint(x, y);
+  return { x:a, y:b };
+}
+// PDF 空间的「右」和「上」在屏幕上各朝哪个方向。页面转过 90° 时它们也跟着转,
+// 画字和画图都得按这个来 —— 不能假定屏幕上的文字一定是水平的。
+function PE基向量(){
+  const o = PE转屏(0,0), u = PE转屏(1,0), v = PE转屏(0,1);
+  return { u:{ x:u.x-o.x, y:u.y-o.y }, v:{ x:v.x-o.x, y:v.y-o.y } };
+}
+function PE矩形屏(a){
+  const p1 = PE转屏(a.x, a.y), p2 = PE转屏(a.x + a.w, a.y + a.h);
+  return { x:Math.min(p1.x,p2.x), y:Math.min(p1.y,p2.y),
+           w:Math.abs(p2.x-p1.x), h:Math.abs(p2.y-p1.y) };
+}
+
+/* ---- 画一个标注（画布预览） ---- */
+function PE画一个(ctx, a){
+  const 基 = PE基向量();
+  ctx.save();
+  if (a.类 === 'rect' || a.类 === 'ellipse' || a.类 === 'cover' || a.类 === 'hl'){
+    const b = PE矩形屏(a);
+    if (a.类 === 'cover'){ ctx.fillStyle = a.填充 || '#ffffff'; ctx.fillRect(b.x, b.y, b.w, b.h); }
+    else if (a.类 === 'hl'){ ctx.globalAlpha = .38; ctx.fillStyle = a.填充 || '#ffe066';
+      ctx.fillRect(b.x, b.y, b.w, b.h); ctx.globalAlpha = 1; }
+    else {
+      ctx.strokeStyle = a.颜色 || '#c0392b';
+      ctx.lineWidth = (a.线宽 || 1.5) * Math.hypot(基.u.x, 基.u.y);
+      if (a.类 === 'rect') ctx.strokeRect(b.x, b.y, b.w, b.h);
+      else { ctx.beginPath(); ctx.ellipse(b.x+b.w/2, b.y+b.h/2, b.w/2, b.h/2, 0, 0, Math.PI*2); ctx.stroke(); }
+    }
+  }
+  else if (a.类 === 'line'){
+    const p1 = PE转屏(a.x, a.y), p2 = PE转屏(a.x2, a.y2);
+    ctx.strokeStyle = a.颜色 || '#c0392b';
+    ctx.lineWidth = (a.线宽 || 1.5) * Math.hypot(基.u.x, 基.u.y);
+    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+  }
+  else if (a.类 === 'ink'){
+    ctx.strokeStyle = a.颜色 || '#c0392b';
+    ctx.lineWidth = (a.线宽 || 2) * Math.hypot(基.u.x, 基.u.y);
+    ctx.beginPath();
+    a.点.forEach(([x,y], i)=>{ const p = PE转屏(x,y); i ? ctx.lineTo(p.x,p.y) : ctx.moveTo(p.x,p.y); });
+    ctx.stroke();
+  }
+  else if (a.类 === 'text'){
+    const p = PE转屏(a.x, a.y);
+    const 缩 = Math.hypot(基.u.x, 基.u.y);
+    ctx.translate(p.x, p.y);
+    ctx.rotate(Math.atan2(基.u.y, 基.u.x));
+    ctx.font = (a.字号 * 缩) + 'px "' + (a.字体族 || 'PE内置中文') + '"';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = a.颜色 || '#000000';
+    String(a.文字).split('\n').forEach((t, i)=> ctx.fillText(t, 0, i * a.字号 * 1.35 * 缩));
+  }
+  else if (a.类 === 'image'){
+    const g = 编.图库[a.图];
+    if (g && g.img && g.img.complete){
+      const c1 = PE转屏(a.x, a.y), c2 = PE转屏(a.x + a.w, a.y), c4 = PE转屏(a.x, a.y + a.h);
+      ctx.transform((c2.x-c1.x)/g.img.naturalWidth, (c2.y-c1.y)/g.img.naturalWidth,
+                    (c4.x-c1.x)/g.img.naturalHeight, (c4.y-c1.y)/g.img.naturalHeight, c1.x, c1.y);
+      ctx.drawImage(g.img, 0, 0);
+    }
+  }
+  ctx.restore();
+}
+// 标注在屏幕上的外框, 用来画选中虚线框
+function PE外框(a){
+  if (a.类 === 'text'){
+    const 基 = PE基向量();
+    const p = PE转屏(a.x, a.y);
+    const 缩 = Math.hypot(基.u.x, 基.u.y);
+    const 宽 = Math.max(...String(a.文字).split('\n').map(t => t.length * a.字号 * 0.95)) * 缩;
+    const 高 = String(a.文字).split('\n').length * a.字号 * 1.35 * 缩;
+    const 角 = Math.atan2(基.u.y, 基.u.x);
+    const 左 = -Math.sin(角) * 高, 上 = Math.cos(角) * 高;
+    const xs = [p.x, p.x + Math.cos(角)*宽, p.x + 左, p.x + Math.cos(角)*宽 + 左];
+    const ys = [p.y, p.y + Math.sin(角)*宽, p.y + 上, p.y + Math.sin(角)*宽 + 上];
+    return { x:Math.min(...xs), y:Math.min(...ys), w:Math.max(...xs)-Math.min(...xs), h:Math.max(...ys)-Math.min(...ys) };
+  }
+  if (a.类 === 'line'){
+    const p1 = PE转屏(a.x,a.y), p2 = PE转屏(a.x2,a.y2);
+    return { x:Math.min(p1.x,p2.x), y:Math.min(p1.y,p2.y), w:Math.abs(p2.x-p1.x), h:Math.abs(p2.y-p1.y) };
+  }
+  if (a.类 === 'ink'){
+    const ps = a.点.map(([x,y]) => PE转屏(x,y));
+    const xs = ps.map(p=>p.x), ys = ps.map(p=>p.y);
+    return { x:Math.min(...xs), y:Math.min(...ys), w:Math.max(...xs)-Math.min(...xs), h:Math.max(...ys)-Math.min(...ys) };
+  }
+  return PE矩形屏(a);
+}
+// 命中测试: 点在不在这个标注上
+function PE命中标注(屏点){
+  const 本页 = 编.标注.filter(a => a.页 === 编.页 - 1);
+  for (let i = 本页.length - 1; i >= 0; i--){
+    const a = 本页[i], b = PE外框(a);
+    const 松 = a.类 === 'ink' || a.类 === 'line' ? 6 : 2;
+    if (屏点.x >= b.x-松 && 屏点.x <= b.x+b.w+松 && 屏点.y >= b.y-松 && 屏点.y <= b.y+b.h+松) return a;
+  }
+  return null;
+}
+
+/* ---- 工具 ---- */
+const PE工具表 = [
+  { k:'select', 名:'选择',   说明:'点已有内容选中，拖动移动，Delete 删除' },
+  { k:'text',   名:'加文字', 说明:'在页面上点一下要写字的位置' },
+  { k:'retype', 名:'改原字', 说明:'点原文里的文字，改成新的 —— 会用背景色盖住原字再重打' },
+  { k:'image',  名:'加图片', 说明:'在页面上点一下要放图片的位置' },
+  { k:'rect',   名:'矩形',   说明:'按住拖出一个矩形框' },
+  { k:'ellipse',名:'椭圆',   说明:'按住拖出一个椭圆' },
+  { k:'line',   名:'线段',   说明:'按住拖出一条线段' },
+  { k:'hl',     名:'高亮',   说明:'在文字上横向拖一道高亮' },
+  { k:'ink',    名:'画笔',   说明:'按住自由画线' },
+  { k:'cover',  名:'遮盖块', 说明:'拖出一块白块盖住内容' }
+];
+// 换工具要同时刷新工具条(高亮哪个)、侧栏(参数面板)、页脚(操作提示)。
+// 漏掉任何一处界面就会自相矛盾 —— 比如工具已经自动切回「选择」了,
+// 页脚还写着「按住自由画线」。
+function PE刷新工具界面(){ PE渲染工具条(); PE渲染侧栏(); PE更新页脚(); }
+function PE渲染工具条(){
+  const host = $('peTools'); host.innerHTML = '';
+  PE工具表.forEach(t=>{
+    const b = document.createElement('button');
+    b.className = 'pe-t' + (编.工具 === t.k ? ' on' : '');
+    b.textContent = t.名; b.title = t.说明;
+    b.onclick = ()=>{ 编.工具 = t.k; 编.选中 = null; PE收起输入框(); PE刷新工具界面(); PE重画(); };
+    host.appendChild(b);
+  });
+}
+function PE更新页脚(){
+  $('pePageV').textContent = 编.页 + ' / ' + (编.页数 || 1);
+  $('peZoomV').textContent = Math.round(编.缩放 * 100) + '%';
+  $('pePrev').disabled = 编.页 <= 1;
+  $('peNext').disabled = 编.页 >= 编.页数;
+  $('peUndo').disabled = !编.历史.length;
+  $('peRedo').disabled = !编.未来.length;
+  const t = PE工具表.find(x => x.k === 编.工具);
+  $('peHint').textContent = t ? t.说明 : '';
+}
+function PE行(标签, 控件){
+  const d = document.createElement('div');
+  d.className = 'row';
+  const l = document.createElement('label'); l.textContent = 标签;
+  d.appendChild(l); d.appendChild(控件);
+  return d;
+}
+function PE渲染侧栏(){
+  const host = $('peSide'); host.innerHTML = '';
+  const t = PE工具表.find(x => x.k === 编.工具) || PE工具表[0];
+  const h = document.createElement('h4'); h.textContent = t.名;
+  const p = document.createElement('p'); p.textContent = t.说明;
+  host.appendChild(h); host.appendChild(p);
+
+  const 数 = (标签, 键, 最小, 最大, 步) => {
+    const i = document.createElement('input');
+    i.type = 'number'; i.min = 最小; i.max = 最大; i.step = 步; i.value = 编.设[键];
+    i.oninput = ()=>{ const v = +i.value; if (v >= 最小 && v <= 最大){ 编.设[键] = v;
+      if (编.选中 && 编.选中.类 === 'text' && 键 === '字号'){ 编.选中.字号 = v; PE重画(); } else PE重画(); } };
+    return i;
+  };
+  const 色 = (标签, 键) => {
+    const i = document.createElement('input');
+    i.type = 'color'; i.value = 编.设[键];
+    i.oninput = ()=>{ 编.设[键] = i.value; PE重画(); };
+    return i;
+  };
+
+  if (编.工具 === 'text'){
+    host.appendChild(PE行('字号', 数('字号','字号',6,200,1)));
+    host.appendChild(PE行('颜色', 色('颜色','颜色')));
+    const n = document.createElement('p');
+    n.innerHTML = '中文用内置思源黑体；<b>本机版</b>还能读系统字体。';
+    host.appendChild(n);
+  }
+  else if (编.工具 === 'retype'){
+    host.appendChild(PE行('字号', 数('字号','字号',6,200,1)));
+    host.appendChild(PE行('颜色', 色('颜色','颜色')));
+    const n = document.createElement('p');
+    n.innerHTML = '点原文上的字 → 自动取原字号、原颜色、原位置，并尽量匹配原字体。';
+    host.appendChild(n);
+  }
+  else if (编.工具 === 'rect' || 编.工具 === 'ellipse' || 编.工具 === 'line'){
+    host.appendChild(PE行('颜色', 色('颜色','颜色')));
+    host.appendChild(PE行('线宽', 数('线宽','线宽',0.5,20,0.5)));
+  }
+  else if (编.工具 === 'ink'){
+    host.appendChild(PE行('颜色', 色('颜色','颜色')));
+    host.appendChild(PE行('线宽', 数('线宽','线宽',0.5,20,0.5)));
+  }
+  else if (编.工具 === 'hl'){
+    host.appendChild(PE行('颜色', 色('填充','高亮')));
+  }
+  else if (编.工具 === 'cover'){
+    host.appendChild(PE行('填充', 色('填充','填充')));
+    const n = document.createElement('p');
+    n.innerHTML = '用「改原字」时会自动取原位置的背景色，不用自己配。';
+    host.appendChild(n);
+  }
+  else if (编.工具 === 'select'){
+    const n = document.createElement('p');
+    n.innerHTML = 编.选中
+      ? '已选中一个对象。拖动移动，Delete 删除。'
+      : '点一下页面上的内容即可选中。';
+    host.appendChild(n);
+    if (编.选中){
+      const b = document.createElement('button');
+      b.className = 'pe-t'; b.textContent = '删除选中';
+      b.onclick = ()=>{ PE记一步(); 编.标注 = 编.标注.filter(x => x !== 编.选中); 编.选中 = null; PE渲染侧栏(); PE重画(); };
+      host.appendChild(b);
+    }
+  }
+  else {
+    const n = document.createElement('p');
+    n.textContent = '点「加图片」后再点页面，会弹出选图。';
+    host.appendChild(n);
+  }
+}
+
+/* ---- 撤销 / 重做 ----
+   快照整份标注表。图片的字节存在 编.图库 里由 id 引用, 不跟着快照走 ——
+   否则贴一张照片就把每一步历史都撑成几 MB。 */
+function PE记一步(){
+  const s = JSON.stringify(编.标注);
+  if (编.历史[编.历史.length-1] === s) return;
+  编.历史.push(s);
+  if (编.历史.length > 60) 编.历史.shift();
+  编.未来 = [];
+  编.脏 = true;
+  PE更新页脚();
+}
+function PE撤销(){
+  if (!编.历史.length) return;
+  编.未来.push(JSON.stringify(编.标注));
+  编.标注 = JSON.parse(编.历史.pop());
+  编.选中 = null; 编.脏 = true;
+  PE更新页脚(); PE渲染侧栏(); PE重画();
+}
+function PE重做(){
+  if (!编.未来.length) return;
+  编.历史.push(JSON.stringify(编.标注));
+  编.标注 = JSON.parse(编.未来.pop());
+  编.选中 = null; 编.脏 = true;
+  PE更新页脚(); PE渲染侧栏(); PE重画();
+}
+
+/* ---- 页面上浮的输入框 ---- */
+function PE收起输入框(){ const e = document.querySelector('.pe-in'); if (e) e.remove(); }
+function PE开输入框(屏点, 初值, 说明, 确定){
+  PE收起输入框();
+  const d = document.createElement('div');
+  d.className = 'pe-in';
+  const ta = document.createElement('textarea');
+  ta.value = 初值 || '';
+  const row = document.createElement('div'); row.className = 'row';
+  const note = document.createElement('span'); note.className = 'note'; note.innerHTML = 说明 || '';
+  const 取消 = document.createElement('button'); 取消.className = 'pe-t'; 取消.textContent = '取消';
+  const 好 = document.createElement('button'); 好.className = 'pe-t on'; 好.textContent = '确定';
+  row.appendChild(note); row.appendChild(取消); row.appendChild(好);
+  d.appendChild(ta); d.appendChild(row);
+  // 别让输入框跑出页面外
+  const 页宽 = 编.视口.width, 页高 = 编.视口.height;
+  d.style.left = Math.max(2, Math.min(屏点.x, 页宽 - 258)) + 'px';
+  d.style.top  = Math.max(2, Math.min(屏点.y, Math.max(2, 页高 - 130))) + 'px';
+  $('pePg').appendChild(d);
+  ta.focus(); ta.select();
+  取消.onclick = PE收起输入框;
+  好.onclick = ()=>{ const v = ta.value; PE收起输入框(); if (v.trim()) 确定(v); };
+  ta.onkeydown = (e)=>{
+    if (e.key === 'Escape'){ e.stopPropagation(); PE收起输入框(); }
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); 好.onclick(); }
+  };
+}
+
+/* ---- 指针交互 ---- */
+function PE指针位(e){
+  const r = $('peDraw').getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+function PE绑指针(){
+  const cv = $('peDraw');
+  cv.onpointerdown = async (e)=>{
+    if (!编.视口 || 编.拖) return;
+    if (document.querySelector('.pe-in')) { PE收起输入框(); return; }
+    // 捕获指针, 好在鼠标划出画布时还能收到 move。失败不影响功能, 所以吞掉 ——
+    // 元素被换掉、或合成事件里 pointerId 对不上时它会抛。
+    try { cv.setPointerCapture(e.pointerId); } catch(err){}
+    const 屏 = PE指针位(e);
+    const p = PE转PDF(屏.x, 屏.y);
+    const k = 编.工具;
+
+    if (k === 'select'){
+      const 中 = PE命中标注(屏);
+      编.选中 = 中;
+      PE渲染侧栏();
+      if (中){
+        const 起 = { 屏, 原:JSON.parse(JSON.stringify(中)) };
+        编.拖 = { 类:'移', 起, 记过:false };
+      }
+      PE重画(); return;
+    }
+    if (k === 'text'){
+      await PE加文字框(屏, p); return;
+    }
+    if (k === 'retype'){
+      await PE改原字(屏, p); return;
+    }
+    if (k === 'image'){
+      PE选图放到(p); return;
+    }
+    // 拖拽类: 先记一个预览, 松手才落成正式标注
+    if (k === 'rect' || k === 'ellipse' || k === 'hl' || k === 'cover'){
+      编.拖 = { 类:'框', 起:p, 预览:PE新框(k, p, p) };
+    } else if (k === 'line'){
+      编.拖 = { 类:'线', 起:p, 预览:{ 类:'line', 页:编.页-1, x:p.x, y:p.y, x2:p.x, y2:p.y,
+        颜色:编.设.颜色, 线宽:编.设.线宽 } };
+    } else if (k === 'ink'){
+      编.拖 = { 类:'笔', 点:[[p.x,p.y]], 预览:{ 类:'ink', 页:编.页-1, 点:[[p.x,p.y]],
+        颜色:编.设.颜色, 线宽:编.设.线宽 } };
+    }
+    PE重画();
+  };
+  cv.onpointermove = (e)=>{
+    const d = 编.拖; if (!d || !编.视口) return;
+    const 屏 = PE指针位(e);
+    const p = PE转PDF(屏.x, 屏.y);
+    if (d.类 === '移'){
+      const dx = p.x - PE转PDF(d.起.屏.x, d.起.屏.y).x;
+      const dy = p.y - PE转PDF(d.起.屏.x, d.起.屏.y).y;
+      const o = d.起.原, 中 = 编.选中;
+      if (中.类 === 'line'){ 中.x = o.x+dx; 中.y = o.y+dy; 中.x2 = o.x2+dx; 中.y2 = o.y2+dy; }
+      else if (中.类 === 'ink'){ 中.点 = o.点.map(([x,y]) => [x+dx, y+dy]); }
+      else { 中.x = o.x+dx; 中.y = o.y+dy; }
+      if (!d.记过){ PE记一步(); d.记过 = true; }
+    }
+    else if (d.类 === '框'){
+      d.预览 = PE新框(d.预览.类, d.起, p);
+      if (d.预览.类 === 'hl'){ d.预览.h = Math.max(d.预览.h, 2); }
+    }
+    else if (d.类 === '线'){ d.预览.x2 = p.x; d.预览.y2 = p.y; }
+    else if (d.类 === '笔'){ d.点.push([p.x, p.y]); d.预览.点 = d.点; }
+    PE重画();
+  };
+  const 收尾 = ()=>{
+    const d = 编.拖; if (!d) return;
+    编.拖 = null;
+    if (d.类 === '移'){ PE渲染侧栏(); PE重画(); return; }
+    const a = d.预览;
+    if (a){
+      // 太小的框多半是手抖点了一下, 不当成一次绘制
+      const 太小 = a.类 !== 'ink' && a.类 !== 'line' &&
+        Math.abs(a.w) * 编.缩放 < 4 && Math.abs(a.h) * 编.缩放 < 4;
+      if (!太小){
+        if (a.w < 0){ a.x += a.w; a.w = -a.w; }
+        if (a.h < 0){ a.y += a.h; a.h = -a.h; }
+        PE记一步();
+        编.标注.push(a);
+        编.选中 = a; 编.工具 = 'select';
+        PE刷新工具界面();
+      }
+    }
+    PE重画();
+  };
+  cv.onpointerup = 收尾;
+  cv.onpointercancel = 收尾;
+}
+function PE新框(类, a, b){
+  const o = { 类, 页:编.页-1, x:Math.min(a.x,b.x), y:Math.min(a.y,b.y),
+              w:Math.abs(b.x-a.x), h:Math.abs(b.y-a.y) };
+  if (类 === 'hl') { o.填充 = 编.设.高亮; o.h = Math.max(o.h, 0.1); }
+  else if (类 === 'cover') o.填充 = 编.设.填充;
+  else { o.颜色 = 编.设.颜色; o.线宽 = 编.设.线宽; }
+  return o;
+}
+
+/* ---- 加文字 ---- */
+async function PE加文字框(屏, p){
+  let 字体;
+  try { 字体 = await PE载字体(); } catch(e){ alert(e.message); return; }
+  PE开输入框(屏, '', 'Ctrl+Enter 确定', (v)=>{
+    PE记一步();
+    const a = { 类:'text', 页:编.页-1, x:p.x, y:p.y, 文字:v,
+                字号:编.设.字号, 颜色:编.设.颜色, 字体键:字体.键, 字体族:字体.族 };
+    编.标注.push(a);
+    编.选中 = a; 编.工具 = 'select';
+    PE刷新工具界面(); PE重画();
+  });
+}
+
+/* ---- 点原文改字 ----
+   PDF 里没有「一行字」这种东西, 只有一个个被摆到坐标上的字形。所以「改原文」的
+   实现是: 取到那串字形的框和属性 → 用背景色盖住 → 在同样的基线上按同样的字号重打。
+   这也是 Smallpdf / Sejda 那一类网页编辑器的做法 —— 不是改内容流, 是覆盖重打。 */
+async function PE改原字(屏, p){
+  let 项表;
+  try { 项表 = await PE取文字(编.页); }
+  catch(e){ alert('这一页读不出文字：' + e.message); return; }
+  const 命中 = 项表.filter(t => !t.斜 && p.x >= t.左 - 1 && p.x <= t.右 + 1 && p.y >= t.下 - 1 && p.y <= t.上 + 1)
+    .sort((a,b) => (a.右-a.左) - (b.右-b.左))[0];
+  if (!命中){
+    const 有字 = 项表.filter(t=>!t.斜).length;
+    alert(有字
+      ? '这里没有可编辑的文字。点在原文的字上试试（「改原字」只能改文字型 PDF 里已有的字，扫描件要先用 OCR，本站不做）。'
+      : '这一页提取不到文字，多半是扫描件（整页是图片）。扫描件改字需要 OCR，本站不做 —— 但你可以用「遮盖块」盖住再「加文字」。');
+    return;
+  }
+  // 认原字体。首选 pdf.js 渲染时留下的真名; 取不到时退一步 —— 整份文档只有一个字体的话,
+  // 那就是它, 不用猜。两个都没有就老实说认不出来, 用内置字体。
+  let 原名 = 命中.字体名 || '';
+  if (!原名){
+    const 文档 = await PE文档字体();
+    if (文档.length === 1) 原名 = 文档[0].名;
+  }
+  let 字体 = null, 字体说明 = '';
+  try {
+    字体 = await PE载字体();
+    if (原名){
+      const 系统 = await PE系统字体(原名);
+      if (系统){ 字体 = 系统; 字体说明 = '已匹配原字体 <b>' + 系统.名 + '</b>'; }
+      else 字体说明 = '<span class="warn">原文用的是 ' + PE净字体名(原名) + '，本机没找到，改用内置字体</span>';
+    }
+  } catch(e){ alert(e.message); return; }
+
+  // 从已渲染的画布上取原文字的颜色和它背后的底色
+  const 色 = PE取色(命中) || { 背景:'#ffffff', 文字:'#000000' };
+  PE开输入框(屏, 命中.str, 字体说明 + '<br>字号 ' + 命中.字号.toFixed(1) + ' · 底色 ' + 色.背景,
+    (v)=>{
+      PE记一步();
+      const 页 = 编.页 - 1;
+      // 遮盖块要留一点余量, 不然原字的抗锯齿边缘会从边上透出来
+      const 边 = Math.max(0.6, 命中.字号 * 0.06);
+      编.标注.push({ 类:'cover', 页, x:命中.左 - 边, y:命中.下 - 边,
+                     w:(命中.右 - 命中.左) + 边*2, h:(命中.上 - 命中.下) + 边*2, 填充:色.背景 });
+      const a = { 类:'text', 页, x:命中.左, y:命中.基线上, 文字:v, 字号:命中.字号,
+                  颜色:色.文字, 字体键:字体.键, 字体族:字体.族 };
+      编.标注.push(a);
+      编.选中 = a; 编.工具 = 'select';
+      PE刷新工具界面(); PE重画();
+    });
+}
+
+// 把「点中的这串字」和「它用的哪个字体」连起来。
+// pdf.js 在 getTextContent 里只给 g_d1_f1 这种内部编号, styles 里的 fontFamily 又是
+// "monospace" 这类兜底值 —— 光看这两样认不出宋体还是黑体。但它渲染时会把加载好的字体
+// 对象挂在 page.commonObjs 上, 那上面的 .name 是真名(SimSun / SimHei / KaiTi…),
+// 和 pdf-lib 读到的 /BaseFont 对得上。这是唯一一条能拿到真名的路。
+function PE项字体名(页, fontName){
+  try {
+    const o = 页.commonObjs.get(fontName);
+    return (o && o.name) ? String(o.name) : '';
+  } catch(e){ return ''; }   // 这一页还没渲染过时取不到, 不算错
+}
+
+// 把一页的文字连同它在 PDF 空间里的框取出来。框是给命中测试用的, 取不准就点不中。
+async function PE取文字(页号){
+  if (编.文字[页号]) return 编.文字[页号];
+  const p = await 编.文档.getPage(页号);
+  const tc = await p.getTextContent();
+  const 出 = [];
+  for (const it of tc.items){
+    if (!it.str || !it.str.trim()) continue;
+    const tr = it.transform || [1,0,0,1,0,0];
+    const 号 = Math.hypot(tr[2], tr[3]) || Math.abs(tr[3]) || 12;
+    const st = tc.styles[it.fontName] || {};
+    const 升 = (typeof st.ascent === 'number' ? st.ascent : 0.9) * 号;
+    const 降 = (typeof st.descent === 'number' ? st.descent : -0.25) * 号;
+    // 倾斜/竖排的文字先跳过 —— 轴对齐的框算不准它们, 与其点歪不如点不中
+    const 斜 = Math.abs(tr[1]) > 0.02 || Math.abs(tr[2]) > 0.02;
+    出.push({ str:it.str, 左:tr[4], 右:tr[4] + it.width, 基线上:tr[5],
+              下:tr[5] + 降, 上:tr[5] + 升, 字号:号, 斜,
+              字体名: PE项字体名(p, it.fontName),
+              字体族:(st.fontFamily || '').split(',')[0].replace(/["']/g,'').trim() });
+  }
+  编.文字[页号] = 出;
+  return 出;
+}
+// 从已渲染的画布上取「原字颜色」和「背后的底色」。
+// 直方图取最高频的当背景, 再取离背景最远的一簇当文字色 —— 抗锯齿的过渡色
+// 会散成很多桶, 取不到干扰。
+function PE取色(框){
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const p1 = PE转屏(框.左, 框.下), p2 = PE转屏(框.右, 框.上);
+  const x = Math.max(0, Math.round(Math.min(p1.x,p2.x) * dpr));
+  const y = Math.max(0, Math.round(Math.min(p1.y,p2.y) * dpr));
+  const w = Math.round(Math.abs(p2.x-p1.x) * dpr), h = Math.round(Math.abs(p2.y-p1.y) * dpr);
+  if (w < 1 || h < 1) return null;
+  let d;
+  try { d = $('peBase').getContext('2d').getImageData(x, y, w, h).data; }
+  catch(e){ return null; }         // 跨域画布会抛, 这里不该发生(全是本地渲染)
+  const 桶 = new Map();
+  for (let i = 0; i < d.length; i += 4){
+    const k = (d[i]>>3<<10) | (d[i+1]>>3<<5) | (d[i+2]>>3);
+    const o = 桶.get(k) || { n:0, r:0, g:0, b:0 };
+    o.n++; o.r += d[i]; o.g += d[i+1]; o.b += d[i+2];
+    桶.set(k, o);
+  }
+  const 列 = [...桶.values()].map(o => ({ n:o.n, r:o.r/o.n, g:o.g/o.n, b:o.b/o.n })).sort((a,b)=>b.n-a.n);
+  const 亮 = c => c.r*0.299 + c.g*0.587 + c.b*0.114;
+  const 背 = 列[0];
+  // 文字色取「离背景最远」的那一簇, 不取「最高频」的那一簇。
+  // 差别很实在: 宋体的横画很细, 抗锯齿产生的中间灰在像素数量上会盖过笔画实心的黑,
+  // 按最高频取出来就是 #646464 这种灰 —— 原文明明是纯黑, 补上去的字却发灰, 一眼看得出补过。
+  // n >= 3 的门槛是为了挡掉孤立的杂色点(JPEG 压缩的噪点、边缘溢出的一个像素)。
+  const 文 = 列.filter(c => c.n >= 3 && Math.abs(亮(c) - 亮(背)) > 40)
+              .sort((a,b) => Math.abs(亮(b) - 亮(背)) - Math.abs(亮(a) - 亮(背)))[0];
+  return { 背景: PE十六(背), 文字: 文 ? PE十六(文) : '#000000' };
+}
+
+/* ---- 加图片 ---- */
+// pdf-lib 只吃 PNG 和 JPG, 其余格式(GIF / WebP / BMP / HEIC…)先过一遍画布转成 PNG。
+// 判断格式必须看文件头的魔数 —— 按扩展名或 URL 猜都不行: 编辑器里存的是 blob: URL,
+// 里面没有任何格式信息, 一张 PNG 会被当成 JPG 送进 embedJpg, 报 "SOI not found in JPEG"。
+async function PE嵌图(doc, g){
+  const 字节 = new Uint8Array(await g.blob.arrayBuffer());
+  const 头 = [...字节.slice(0, 4)].map(b => b.toString(16).padStart(2,'0')).join('');
+  if (头.startsWith('89504e47')) return await doc.embedPng(字节);   // \x89PNG
+  if (头.startsWith('ffd8ff'))   return await doc.embedJpg(字节);   // JPEG SOI
+  const c = document.createElement('canvas');
+  c.width = g.img.naturalWidth; c.height = g.img.naturalHeight;
+  c.getContext('2d').drawImage(g.img, 0, 0);
+  const b2 = await new Promise(r => c.toBlob(r, 'image/png'));
+  return await doc.embedPng(await b2.arrayBuffer());
+}
+function PE选图放到(p){
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = ()=>{
+    const f = inp.files && inp.files[0]; if (!f) return;
+    const url = URL.createObjectURL(f);
+    const img = new Image();
+    img.onload = ()=>{
+      const id = 'g' + Date.now().toString(36);
+      // 存原始 File 而不是只存 URL —— 保存时要拿它的字节。从 URL 猜图片格式是不行的:
+      // 这里拿到的是 blob: URL, 里面没有任何格式信息, PNG 会被当成 JPG 送进 embedJpg 然后抛错。
+      编.图库[id] = { img, blob:f, 宽:img.naturalWidth, 高:img.naturalHeight };
+      // 默认按 1 个 PDF 点 = 1 个图片像素 放; 太大就缩到页面宽度的 1/2
+      let w = img.naturalWidth, h = img.naturalHeight;
+      const 限 = 编.视口.width / 编.缩放 * 0.5;
+      if (w > 限){ h = h * 限 / w; w = 限; }
+      PE记一步();
+      const a = { 类:'image', 页:编.页-1, x:p.x - w/2, y:p.y - h/2, w, h, 图:id };
+      编.标注.push(a);
+      编.选中 = a; 编.工具 = 'select';
+      PE刷新工具界面(); PE重画();
+    };
+    img.onerror = ()=>alert('这张图片读不出来');
+    img.src = url;
+  };
+  inp.click();
+}
+
+/* ---- 保存回 PDF ----
+   用 pdf-lib 在原件上重放标注。文本用 embedFont(..., {subset:true}) ——
+   不传这个, 每存一次 PDF 就会胖 2.2 MB(整份字体嵌进去)。 */
+async function PE保存(){
+  if (!编.文档) return;
+  const btn = $('peSave');
+  btn.disabled = true; btn.textContent = '保存中…';
+  try {
+    const { PDFDocument } = PDFLib;
+    const doc = await PDFDocument.load(编.原, { ignoreEncryption: true });
+    if (编.标注.some(a => a.类 === 'text')){
+      await PE载字体();
+      doc.registerFontkit(window.fontkit);
+    }
+    const 页表 = doc.getPages();
+    const 缓存 = {};
+    async function 取字体(a){
+      const 键 = a.字体键 || '内置';
+      if (缓存[键]) return 缓存[键];
+      const 源 = (编.字体 && 键 === 编.字体.键) ? 编.字体.字节
+               : Object.values(编.系统字体).find(x => x && x.键 === 键)?.字节;
+      if (!源) throw new Error('找不到要嵌入的字体（' + 键 + '）');
+      缓存[键] = await doc.embedFont(源, { subset: true });
+      return 缓存[键];
+    }
+    for (const a of 编.标注){
+      const pg = 页表[a.页];
+      if (!pg) continue;
+      if (a.类 === 'text'){
+        const f = await 取字体(a);
+        const 行高 = a.字号 * 1.35;
+        String(a.文字).split('\n').forEach((t, i)=>{
+          pg.drawText(t, { x:a.x, y:a.y - i*行高, size:a.字号, font:f, color:PE色(a.颜色) });
+        });
+      }
+      else if (a.类 === 'rect'){
+        pg.drawRectangle({ x:a.x, y:a.y, width:a.w, height:a.h,
+          borderColor:PE色(a.颜色), borderWidth:a.线宽 || 1 });
+      }
+      else if (a.类 === 'ellipse'){
+        pg.drawEllipse({ x:a.x + a.w/2, y:a.y + a.h/2, xScale:a.w/2, yScale:a.h/2,
+          borderColor:PE色(a.颜色), borderWidth:a.线宽 || 1 });
+      }
+      else if (a.类 === 'line'){
+        pg.drawLine({ start:{x:a.x, y:a.y}, end:{x:a.x2, y:a.y2},
+          thickness:a.线宽 || 1, color:PE色(a.颜色) });
+      }
+      else if (a.类 === 'ink'){
+        // pdf-lib 没有折线, 只能一段一段画。相邻两段各画一个圆点补接头,
+        // 不然转角处会出现缺口。
+        for (let i = 1; i < a.点.length; i++){
+          const p1 = a.点[i-1], p2 = a.点[i];
+          pg.drawLine({ start:{x:p1[0], y:p1[1]}, end:{x:p2[0], y:p2[1]},
+            thickness:a.线宽 || 2, color:PE色(a.颜色), lineCap:PDFLib.LineCapStyle.Round });
+        }
+      }
+      else if (a.类 === 'hl'){
+        pg.drawRectangle({ x:a.x, y:a.y, width:a.w, height:a.h, color:PE色(a.填充), opacity:0.38 });
+      }
+      else if (a.类 === 'cover'){
+        pg.drawRectangle({ x:a.x, y:a.y, width:a.w, height:a.h, color:PE色(a.填充) });
+      }
+      else if (a.类 === 'image'){
+        const g = 编.图库[a.图];
+        if (!g) continue;
+        pg.drawImage(await PE嵌图(doc, g), { x:a.x, y:a.y, width:a.w, height:a.h });
+      }
+    }
+    const b = await doc.save();
+    const 名 = 主名(编.项.file.name) + '_已编辑.pdf';
+    状态.结果.push({ ok:true, blob:new Blob([b], {type:'application/pdf'}), 文件名:名, 来源:编.项.file.name });
+    编.脏 = false;
+    渲染结果();
+    PE关闭();
+    // 结果列表在「格式转换」那半边。从编辑模式存出来的文件也落到同一个列表里 ——
+    // 这样「保存 → 下载」是一条路, 不必再学第二套下载方式。所以要先把那一半显示出来,
+    // 否则 scrollIntoView 滚的是一个 display:none 的元素, 什么也不会发生。
+    切换模式('conv');
+    $('resCard').scrollIntoView({ behavior:'smooth', block:'start' });
+  } catch(e){
+    alert('保存失败：' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '保存';
+  }
+}
+
+/* ---- 编辑器的事件绑定 ---- */
+$('peClose').onclick = PE关闭;
+$('peSave').onclick = PE保存;
+$('peUndo').onclick = PE撤销;
+$('peRedo').onclick = PE重做;
+$('peZoomIn').onclick  = ()=>{ 编.缩放 = Math.min(4, 编.缩放 * 1.25); PE渲染页(); };
+$('peZoomOut').onclick = ()=>{ 编.缩放 = Math.max(0.2, 编.缩放 / 1.25); PE渲染页(); };
+$('peFit').onclick = ()=>{
+  const 宽 = $('peStage').clientWidth - 40;
+  编.缩放 = Math.max(0.2, Math.min(4, 宽 / (编.视口.width / 编.缩放)));
+  PE渲染页();
+};
+$('pePrev').onclick = ()=>{ if (编.页 > 1){ 编.页--; PE收起输入框(); PE渲染页(); } };
+$('peNext').onclick = ()=>{ if (编.页 < 编.页数){ 编.页++; PE收起输入框(); PE渲染页(); } };
+document.addEventListener('keydown', (e)=>{
+  if (!编.开) return;
+  const 在输入 = /^(INPUT|TEXTAREA)$/.test((e.target && e.target.tagName) || '');
+  if (e.key === 'Escape' && !在输入){ PE关闭(); return; }
+  if (在输入) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); e.shiftKey ? PE重做() : PE撤销(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y'){ e.preventDefault(); PE重做(); return; }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && 编.选中){
+    e.preventDefault(); PE记一步();
+    编.标注 = 编.标注.filter(x => x !== 编.选中);
+    编.选中 = null; PE渲染侧栏(); PE重画();
+  }
+});
+// PE绑指针 不在这里调 —— 它绑的是 #peDraw, 而那个元素每次 PE打开 都会重建。
+// 调用点在 PE打开 里、innerHTML 赋值之后。
+
+/* =========================================================================
    事件绑定
    ========================================================================= */
+
+/* ---- 模式切换 ----
+   两个入口各自展开自己的工作区, 另一个整体隐藏 —— 不是滚动到不同位置, 是真的不显示,
+   免得用户在「格式转换」里翻到一半撞见编辑器的东西。 */
+let 当前模式 = 'conv';
+function 切换模式(名){
+  当前模式 = 名;
+  $('wrapConv').style.display = 名 === 'conv' ? '' : 'none';
+  $('wrapEdit').style.display = 名 === 'edit' ? '' : 'none';
+  $('modeConvBtn').classList.toggle('on', 名 === 'conv');
+  $('modeEditBtn').classList.toggle('on', 名 === 'edit');
+  window.scrollTo(0, 0);
+}
+$('modeConvBtn').onclick = ()=> 切换模式('conv');
+$('modeEditBtn').onclick = ()=> 切换模式('edit');
+
+/* ---- 编辑模式的落地页 ----
+   只收一份 PDF, 收下就直接进全屏编辑器 —— 编辑是「从头改到尾」的活, 攒一批再挑动作
+   那套模型在这里用不上。 */
+function 是PDF(f){ return /\.pdf$/i.test(f.name) || f.type === 'application/pdf'; }
+function 编辑提示(文){
+  const el = $('editTip');
+  el.textContent = 文 || '';
+  el.style.display = 文 ? '' : 'none';
+}
+function 收编辑文件(f){
+  if (!f) return;
+  if (!是PDF(f)){
+    编辑提示('「' + f.name + '」不是 PDF。要转图片或表格，请用上面的「格式转换」。');
+    return;
+  }
+  编辑提示('');
+  PE打开({ file:f });
+}
+$('editDrop').onclick = ()=> $('editPicker').click();
+$('editPicker').onchange = (e)=>{
+  const f = e.target.files && e.target.files[0];
+  e.target.value = '';        // 清掉, 否则同一个文件选第二次不触发 change
+  收编辑文件(f);
+};
+['dragenter','dragover'].forEach(ev => $('editDrop').addEventListener(ev, e=>{ e.preventDefault(); $('editDrop').classList.add('over'); }));
+['dragleave','drop'].forEach(ev => $('editDrop').addEventListener(ev, e=>{ e.preventDefault(); $('editDrop').classList.remove('over'); }));
+$('editDrop').addEventListener('drop', e=>{
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) 收编辑文件(e.dataTransfer.files[0]);
+});
+
 $('drop').onclick = ()=> $('picker').click();
 $('picker').onchange = (e)=>{ 加文件(e.target.files); e.target.value=''; };
 ['dragenter','dragover'].forEach(ev => $('drop').addEventListener(ev, e=>{ e.preventDefault(); $('drop').classList.add('over'); }));
